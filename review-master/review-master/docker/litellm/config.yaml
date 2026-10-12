@@ -1,0 +1,33 @@
+# LiteLLM gateway: the only place provider API keys are used.
+# The backend calls these aliases through one OpenAI-compatible endpoint.
+model_list:
+  - model_name: rm-fast            # extraction, classification, requirement parsing
+    litellm_params:
+      model: ollama_chat/qwen3.5:latest
+      api_base: http://ollama:11434
+
+  - model_name: rm-strong          # chat and long explanations
+    litellm_params:
+      model: ollama_chat/qwen3.5:latest     # local default so the stack works without keys
+      api_base: http://ollama:11434
+      # To use a cloud model, replace the three lines above with one of:
+      #   model: anthropic/<model-id>
+      #   api_key: os.environ/ANTHROPIC_API_KEY
+      # or
+      #   model: openai/<model-id>
+      #   api_key: os.environ/OPENAI_API_KEY
+      # or
+      #   model: gemini/<model-id>
+      #   api_key: os.environ/GEMINI_API_KEY
+
+  - model_name: rm-embed           # RAG embeddings
+    litellm_params:
+      model: ollama/bge-m3
+      api_base: http://ollama:11434
+
+router_settings:
+  num_retries: 2
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  database_url: os.environ/DATABASE_URL     # enables virtual keys and per-key budgets

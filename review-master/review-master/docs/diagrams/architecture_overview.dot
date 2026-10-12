@@ -1,0 +1,53 @@
+digraph G {
+  graph [rankdir=TB, fontname="Helvetica", fontsize=12, nodesep=0.35, ranksep=0.55, pad=0.3, bgcolor="white", splines=true, newrank=true];
+  node  [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=11, fillcolor="#FFFFFF", color="#5B6B7F", penwidth=1.2, margin="0.15,0.08"];
+  edge  [color="#5B6B7F", arrowsize=0.7, fontname="Helvetica", fontsize=9];
+
+  subgraph cluster_clients { label="CLIENTS (render only - never compute scores)"; style="rounded,filled"; fillcolor="#EAF2FB"; color="#9DB8D9";
+    ext [label="Browser Extension\n(Chromium MV3)"];
+    web [label="Web App\nReact + Vite + TS"];
+    adm [label="Admin / Expert\nPortals"];
+    dev [label="Developer API\n(API keys)"];
+    mob [label="Mobile (V2)", style="rounded,filled,dashed"];
+  }
+
+  api [label="API + SECURITY LAYER  (FastAPI, /api/v1)\nauth - RBAC - tenancy (RLS) - rate limit - idempotency - webhooks", fillcolor="#FFF4D6", color="#C9A227", fontsize=12];
+
+  subgraph cluster_core { label="CORE PLATFORM - modular monolith (deterministic)"; style="rounded,filled"; fillcolor="#EAF6EC"; color="#8CC59A";
+    prod [label="Product / Entity\n+ Marketplace Adapters"];
+    eval [label="Evaluation Engine\nscore - confidence - versions", fillcolor="#D5EFDA", penwidth=2];
+    evid [label="Evidence &\nProvenance"];
+    comm [label="Community\nFeedback"];
+    exp  [label="Expert\nWorkflow"];
+    rec  [label="Recommendation\n+ Comparison"];
+    price[label="Offer / Price\n+ Alerts"];
+    notif[label="Notifications"];
+  }
+
+  subgraph cluster_ai { label="AI LAYER - assists, never scores"; style="rounded,filled"; fillcolor="#F3ECFA"; color="#B59AD6";
+    orch [label="Orchestrator\n(LangGraph, capped)"];
+    agents [label="10 agents\n(extract - parse - summarize\nexplain - chat)"];
+    gw [label="LLM Gateway (LiteLLM)\nkeys - budgets - routing"];
+    llm [label="Local (Ollama) /\nCloud LLMs"];
+  }
+
+  subgraph cluster_data { label="DATA"; style="rounded,filled"; fillcolor="#F2F2F2"; color="#B0B0B0";
+    pg [label="PostgreSQL 17\nsource of truth - RLS\naudit - versioned evaluations", shape=cylinder, fillcolor="#FFFFFF"];
+    rd [label="Redis\ncache - queue - limits", shape=cylinder];
+    os [label="Object Storage\nevidence files", shape=cylinder];
+    qd [label="Qdrant (RAG, optional)", shape=cylinder, style="filled,dashed"];
+  }
+
+  cel [label="Celery workers + beat\n(ingestion, review analysis, price refresh,\nalerts, recalculation)", fillcolor="#FDE9E0", color="#D98A6B"];
+  mk  [label="Authorized marketplace\nsources (adapters)", style="rounded,dashed"];
+
+  ext -> api; web -> api; adm -> api; dev -> api; mob -> api [style=dashed];
+  api -> prod; api -> eval; api -> rec; api -> comm; api -> exp; api -> price;
+  prod -> evid [style=invis]; eval -> evid [dir=back]; comm -> eval [style=invis];
+  api -> orch [label="AI flows only"];
+  orch -> agents; agents -> gw; gw -> llm;
+  prod -> pg; eval -> pg; evid -> os; comm -> pg; exp -> pg; rec -> pg; price -> pg;
+  api -> rd; cel -> rd; cel -> pg; cel -> mk; prod -> mk [style=dashed];
+  agents -> qd [style=dashed, label="approved docs"];
+  notif -> cel [style=invis];
+}

@@ -1,0 +1,2908 @@
+openapi: 3.1.0
+info:
+  title: Review Master API
+  version: 0.1.0-draft
+  description: 'Design-stage contract skeleton generated from the architecture package. Field names and shapes are
+    proposals; the backend''s generated OpenAPI becomes the source of truth once implemented. Rules: versioned under
+    /api/v1; no endpoint accepts a score as input; quality, community and expert outputs stay separate; cached lookups
+    target <= 2 s.'
+servers:
+- url: http://localhost:8000
+  description: Local
+tags:
+- name: Health
+- name: Auth
+- name: Products
+- name: Evaluations
+- name: Evidence
+- name: Community
+- name: Comparison
+- name: Recommendation
+- name: Offers & Price
+- name: User space
+- name: Expert workflow
+- name: Admin
+- name: Developer
+- name: Chat
+paths:
+  /healthz:
+    get:
+      operationId: get_healthz
+      tags:
+      - Health
+      summary: Liveness probe
+      x-required-role: public
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+  /readyz:
+    get:
+      operationId: get_readyz
+      tags:
+      - Health
+      summary: Readiness probe (database, redis)
+      x-required-role: public
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  checks:
+                    type: object
+  /api/v1/auth/signup:
+    post:
+      operationId: post_api_v1_auth_signup
+      tags:
+      - Auth
+      summary: Create account (email verification follows)
+      x-required-role: public
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignupRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: &id001
+                    type: string
+                    format: uuid
+  /api/v1/auth/verify-email:
+    post:
+      operationId: post_api_v1_auth_verify_email
+      tags:
+      - Auth
+      summary: Verify email with token
+      x-required-role: public
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+              required:
+              - token
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  verified:
+                    type: boolean
+  /api/v1/auth/login:
+    post:
+      operationId: post_api_v1_auth_login
+      tags:
+      - Auth
+      summary: Login (TOTP required for admin and expert)
+      x-required-role: public
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+  /api/v1/auth/refresh:
+    post:
+      operationId: post_api_v1_auth_refresh
+      tags:
+      - Auth
+      summary: Rotate refresh token, get new access token
+      x-required-role: public
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+  /api/v1/auth/logout:
+    post:
+      operationId: post_api_v1_auth_logout
+      tags:
+      - Auth
+      summary: Revoke current session
+      x-required-role: any authenticated user
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: OK
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/users/me:
+    get:
+      operationId: get_api_v1_users_me
+      tags:
+      - Auth
+      summary: Current user and roles
+      x-required-role: any authenticated user
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/products:
+    get:
+      operationId: get_api_v1_products
+      tags:
+      - Products
+      summary: Search canonical products
+      x-required-role: any authenticated user
+      security:
+      - bearerAuth: []
+      - apiKeyAuth:
+        - products:read
+      parameters:
+      - name: q
+        in: query
+        schema:
+          type: string
+      - name: category
+        in: query
+        schema:
+          type: string
+      - name: cursor
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductSearchResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/products/{product_id}:
+    get:
+      operationId: get_api_v1_products_product_id
+      tags:
+      - Products
+      summary: Get canonical product with variants
+      x-required-role: any authenticated user
+      security:
+      - bearerAuth: []
+      - apiKeyAuth:
+        - products:read
+      parameters:
+      - name: product_id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/products/identify:
+    post:
+      operationId: post_api_v1_products_identify
+      tags:
+      - Products
+      summary: Identify a marketplace listing as a canonical variant
+      x-required-role: any authenticated user
+      security:
+      - bearerAuth: []
+      - apiKeyAuth:
+        - products:read
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IdentifyRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IdentifyResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/products/corrections:
+    post:
+      operationId: post_api_v1_products_corrections
+      tags:
+      - Products
+      summary: Report a wrong match (goes to admin queue)
+      x-required-role: any authenticated user
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CorrectionRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: *id001
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/variants/{variant_id}:
+    get:
+      operationId: get_api_v1_variants_variant_id
+      tags:
+      - Products
+      summary: Get variant with the three separate trust outputs
+      x-required-role: any authenticated user
+      security:
+      - bearerAuth: []
+      - apiKeyAuth:
+        - products:read
+        - evaluations:read
+      parameters:
+      - name: variant_id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductView'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/variants/{variant_id}/evaluation:
+    get:
+      operationId: get_api_v1_variants_variant_id_evaluation
+      tags:
+      - Evaluations
+      summary: Latest evaluation (score, confidence, parameters, evidence refs)
+      x-required-role: any authenticated user
+      security:
+      - bearerAuth: []
+      - apiKeyAuth:
+        - evaluations:read
+      parameters:
+      - name: variant_id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Evaluation'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/variants/{variant_id}/evaluation/history:
+    get:
+      operationId: get_api_v1_variants_variant_id_evaluation_history
+      tags:
+      - Evaluations
+      summary: Evaluation history with model versions
+      x-required-role: any authenticated user
+      security:
+      - bearerAuth: []
+      - apiKeyAuth:
+        - evaluations:read
+      parameters:
+      - name: variant_id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationHistory'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/evaluations/{evaluation_id}/explanation:
+    post:
+      operationId: post_api_v1_evaluations_evaluation_id_explanation
+      tags:
+      - Evaluations
+      summary: AI explanation grounded in the stored evaluation
+      x-required-role: any authenticated user
+      security:
+      - bearerAuth: []
+      - apiKeyAuth:
+        - evaluations:read
+      parameters:
+      - name: evaluation_id
+        in: path
+        required: true
+        schema: *id001
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Explanation'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/evidence:
+    post:
+      operationId: post_api_v1_evidence
+      tags:
+      - Evidence
+      summary: Upload evidence (scanned before storage)
+      x-required-role: admin | expert_reviewer
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/EvidenceUpload'
+      responses:
+        '202':
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Evidence'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/evidence/{evidence_id}:
+    get:
+      operationId: get_api_v1_evidence_evidence_id
+      tags:
+      - Evidence
+      summary: Evidence metadata and signed file URL (permission-checked)
+      x-required-role: any authenticated user
+      security:
+      - bearerAuth: []
+      - apiKeyAuth:
+        - evidence:read
+      parameters:
+      - name: evidence_id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Evidence'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/variants/{variant_id}/feedback:
+    post:
+      operationId: post_api_v1_variants_variant_id_feedback
+      tags:
+      - Community
+      summary: Submit structured feedback (moderated)
+      x-required-role: public_reviewer
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - name: variant_id
+        in: path
+        required: true
+        schema: *id001
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeedbackCreate'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Feedback'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/variants/{variant_id}/community:
+    get:
+      operationId: get_api_v1_variants_variant_id_community
+      tags:
+      - Community
+      summary: Community insights and review-quality signals
+      x-required-role: any authenticated user
+      security:
+      - bearerAuth: []
+      - apiKeyAuth:
+        - community:read
+      parameters:
+      - name: variant_id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommunityInsights'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/comparisons:
+    post:
+      operationId: post_api_v1_comparisons
+      tags:
+      - Comparison
+      summary: Compare same-category variants
+      x-required-role: any authenticated user
+      security:
+      - bearerAuth: []
+      - apiKeyAuth:
+        - comparisons:write
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ComparisonRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComparisonResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/variants/{variant_id}/alternatives:
+    get:
+      operationId: get_api_v1_variants_variant_id_alternatives
+      tags:
+      - Comparison
+      summary: Eligible alternatives with reasons
+      x-required-role: any authenticated user
+      security:
+      - bearerAuth: []
+      - apiKeyAuth:
+        - products:read
+      parameters:
+      - name: variant_id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Variant'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/recommendations/requirements:
+    post:
+      operationId: post_api_v1_recommendations_requirements
+      tags:
+      - Recommendation
+      summary: Turn natural language into validated requirements
+      x-required-role: any authenticated user
+      security:
+      - bearerAuth: []
+      - apiKeyAuth:
+        - recommendations:write
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequirementsText'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Requirements'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/recommendations:
+    post:
+      operationId: post_api_v1_recommendations
+      tags:
+      - Recommendation
+      summary: Ranked recommendation from validated requirements
+      x-required-role: any authenticated user
+      security:
+      - bearerAuth: []
+      - apiKeyAuth:
+        - recommendations:write
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecommendationRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecommendationResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/preferences:
+    get:
+      operationId: get_api_v1_preferences
+      tags:
+      - Recommendation
+      summary: Get saved preferences
+      x-required-role: any authenticated user
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+    put:
+      operationId: put_api_v1_preferences
+      tags:
+      - Recommendation
+      summary: Replace saved preferences
+      x-required-role: any authenticated user
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/variants/{variant_id}/offers:
+    get:
+      operationId: get_api_v1_variants_variant_id_offers
+      tags:
+      - Offers & Price
+      summary: Current offers (permitted sources)
+      x-required-role: any authenticated user
+      security:
+      - bearerAuth: []
+      - apiKeyAuth:
+        - offers:read
+      parameters:
+      - name: variant_id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Offer'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/variants/{variant_id}/price-history:
+    get:
+      operationId: get_api_v1_variants_variant_id_price_history
+      tags:
+      - Offers & Price
+      summary: Price history with coverage
+      x-required-role: any authenticated user
+      security:
+      - bearerAuth: []
+      - apiKeyAuth:
+        - offers:read
+      parameters:
+      - name: variant_id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceHistory'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/price-alerts:
+    get:
+      operationId: get_api_v1_price_alerts
+      tags:
+      - Offers & Price
+      summary: List my alerts
+      x-required-role: any authenticated user
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PriceAlert'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+    post:
+      operationId: post_api_v1_price_alerts
+      tags:
+      - Offers & Price
+      summary: Create price or target-price alert
+      x-required-role: any authenticated user
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PriceAlertCreate'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceAlert'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/price-alerts/{alert_id}:
+    delete:
+      operationId: delete_api_v1_price_alerts_alert_id
+      tags:
+      - Offers & Price
+      summary: Delete alert
+      x-required-role: any authenticated user
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - name: alert_id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: OK
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/saved-products:
+    get:
+      operationId: get_api_v1_saved_products
+      tags:
+      - User space
+      summary: List saved products
+      x-required-role: any authenticated user
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SavedProduct'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+    post:
+      operationId: post_api_v1_saved_products
+      tags:
+      - User space
+      summary: Save a product variant
+      x-required-role: any authenticated user
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SavedProduct'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/saved-products/{saved_id}:
+    delete:
+      operationId: delete_api_v1_saved_products_saved_id
+      tags:
+      - User space
+      summary: Remove saved product
+      x-required-role: any authenticated user
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - name: saved_id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: OK
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/notification-settings:
+    get:
+      operationId: get_api_v1_notification_settings
+      tags:
+      - User space
+      summary: Get notification settings
+      x-required-role: any authenticated user
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationSettings'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+    put:
+      operationId: put_api_v1_notification_settings
+      tags:
+      - User space
+      summary: Update notification settings
+      x-required-role: any authenticated user
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationSettings'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationSettings'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/expert-cases:
+    post:
+      operationId: post_api_v1_expert_cases
+      tags:
+      - Expert workflow
+      summary: Open investigation case
+      x-required-role: admin
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExpertCaseCreate'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExpertCase'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/expert-cases/{case_id}/assign:
+    post:
+      operationId: post_api_v1_expert_cases_case_id_assign
+      tags:
+      - Expert workflow
+      summary: Assign expert (conflict-of-interest check)
+      x-required-role: admin
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - name: case_id
+        in: path
+        required: true
+        schema: *id001
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExpertCase'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/expert-cases/{case_id}/assessments:
+    post:
+      operationId: post_api_v1_expert_cases_case_id_assessments
+      tags:
+      - Expert workflow
+      summary: Submit assessment with proof
+      x-required-role: expert_reviewer
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - name: case_id
+        in: path
+        required: true
+        schema: *id001
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssessmentSubmit'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: *id001
+                  state:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/expert-assessments/{assessment_id}/review:
+    post:
+      operationId: post_api_v1_expert_assessments_assessment_id_review
+      tags:
+      - Expert workflow
+      summary: Approve, reject or return (not by the author)
+      x-required-role: admin
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - name: assessment_id
+        in: path
+        required: true
+        schema: *id001
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssessmentReview'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  state:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/admin/mappings/queue:
+    get:
+      operationId: get_api_v1_admin_mappings_queue
+      tags:
+      - Admin
+      summary: Ambiguous and corrected matches
+      x-required-role: admin
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MappingQueueItem'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/admin/mappings/{item_id}/resolve:
+    post:
+      operationId: post_api_v1_admin_mappings_item_id_resolve
+      tags:
+      - Admin
+      summary: Confirm, change or split a mapping
+      x-required-role: admin
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - name: item_id
+        in: path
+        required: true
+        schema: *id001
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MappingResolution'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/admin/moderation/queue:
+    get:
+      operationId: get_api_v1_admin_moderation_queue
+      tags:
+      - Admin
+      summary: Pending and flagged feedback
+      x-required-role: admin
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Feedback'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/admin/feedback/{feedback_id}/moderate:
+    post:
+      operationId: post_api_v1_admin_feedback_feedback_id_moderate
+      tags:
+      - Admin
+      summary: Approve, reject or flag feedback
+      x-required-role: admin
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - name: feedback_id
+        in: path
+        required: true
+        schema: *id001
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModerationDecision'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Feedback'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/admin/evaluation-models/{model_id}/versions:
+    post:
+      operationId: post_api_v1_admin_evaluation_models_model_id_versions
+      tags:
+      - Admin
+      summary: Create draft evaluation model version
+      x-required-role: admin
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - name: model_id
+        in: path
+        required: true
+        schema: *id001
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EvaluationModelVersionCreate'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationModelVersion'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/admin/evaluation-model-versions/{version_id}/publish:
+    post:
+      operationId: post_api_v1_admin_evaluation_model_versions_version_id_publish
+      tags:
+      - Admin
+      summary: Publish (validated weights, explicit approval, immutable)
+      x-required-role: admin
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - name: version_id
+        in: path
+        required: true
+        schema: *id001
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationModelVersion'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/admin/audit-log:
+    get:
+      operationId: get_api_v1_admin_audit_log
+      tags:
+      - Admin
+      summary: Query audit log
+      x-required-role: admin
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - name: actor_id
+        in: query
+        schema:
+          type: string
+      - name: object_type
+        in: query
+        schema:
+          type: string
+      - name: from
+        in: query
+        schema:
+          type: string
+      - name: to
+        in: query
+        schema:
+          type: string
+      - name: cursor
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AuditEntry'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/admin/integrations:
+    get:
+      operationId: get_api_v1_admin_integrations
+      tags:
+      - Admin
+      summary: Marketplace integration status and freshness
+      x-required-role: admin
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Integration'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/api-keys:
+    get:
+      operationId: get_api_v1_api_keys
+      tags:
+      - Developer
+      summary: List organization API keys
+      x-required-role: api_consumer | admin
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ApiKey'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+    post:
+      operationId: post_api_v1_api_keys
+      tags:
+      - Developer
+      summary: Create API key (secret shown once)
+      x-required-role: api_consumer | admin
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiKeyCreate'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiKeyCreated'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/api-keys/{key_id}:
+    delete:
+      operationId: delete_api_v1_api_keys_key_id
+      tags:
+      - Developer
+      summary: Revoke API key
+      x-required-role: api_consumer | admin
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - name: key_id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: OK
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/webhooks:
+    get:
+      operationId: get_api_v1_webhooks
+      tags:
+      - Developer
+      summary: List webhooks
+      x-required-role: api_consumer | admin
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Webhook'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+    post:
+      operationId: post_api_v1_webhooks
+      tags:
+      - Developer
+      summary: Register signed webhook
+      x-required-role: api_consumer | admin
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookCreate'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Webhook'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/admin/users:
+    get:
+      operationId: get_api_v1_admin_users
+      tags:
+      - Admin
+      summary: List users and roles
+      x-required-role: admin
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - name: q
+        in: query
+        schema:
+          type: string
+      - name: role
+        in: query
+        schema:
+          type: string
+      - name: cursor
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/admin/users/{user_id}/roles:
+    put:
+      operationId: put_api_v1_admin_users_user_id_roles
+      tags:
+      - Admin
+      summary: Change a user's roles (audited, no self-escalation)
+      x-required-role: admin
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema: *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleUpdate'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUser'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/admin/evaluation-models:
+    get:
+      operationId: get_api_v1_admin_evaluation_models
+      tags:
+      - Admin
+      summary: List evaluation models and versions
+      x-required-role: admin
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EvaluationModel'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+    post:
+      operationId: post_api_v1_admin_evaluation_models
+      tags:
+      - Admin
+      summary: Create an evaluation model for a category or new domain
+      x-required-role: admin
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EvaluationModelCreate'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationModel'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/admin/evaluation-models/{model_id}:
+    get:
+      operationId: get_api_v1_admin_evaluation_models_model_id
+      tags:
+      - Admin
+      summary: Get a model with all versions
+      x-required-role: admin
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - name: model_id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationModel'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/evidence/{evidence_id}/versions:
+    get:
+      operationId: get_api_v1_evidence_evidence_id_versions
+      tags:
+      - Evidence
+      summary: Evidence version history (nothing is overwritten)
+      x-required-role: any authenticated user
+      security:
+      - bearerAuth: []
+      - apiKeyAuth:
+        - evidence:read
+      parameters:
+      - name: evidence_id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvidenceVersions'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+    post:
+      operationId: post_api_v1_evidence_evidence_id_versions
+      tags:
+      - Evidence
+      summary: Replace evidence by adding a new version
+      x-required-role: admin | expert_reviewer
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - name: evidence_id
+        in: path
+        required: true
+        schema: *id001
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/EvidenceUpload'
+      responses:
+        '202':
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Evidence'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/webhooks/{webhook_id}:
+    delete:
+      operationId: delete_api_v1_webhooks_webhook_id
+      tags:
+      - Developer
+      summary: Delete a webhook
+      x-required-role: api_consumer | admin
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - name: webhook_id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: OK
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/webhooks/{webhook_id}/deliveries:
+    get:
+      operationId: get_api_v1_webhooks_webhook_id_deliveries
+      tags:
+      - Developer
+      summary: Delivery attempts with status and next retry
+      x-required-role: api_consumer | admin
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - name: webhook_id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WebhookDelivery'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/webhooks/{webhook_id}/deliveries/{delivery_id}/replay:
+    post:
+      operationId: post_api_v1_webhooks_webhook_id_deliveries_delivery_id_replay
+      tags:
+      - Developer
+      summary: Replay a failed delivery
+      x-required-role: api_consumer | admin
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - name: webhook_id
+        in: path
+        required: true
+        schema: *id001
+      - name: delivery_id
+        in: path
+        required: true
+        schema: *id001
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookDelivery'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/chat/messages:
+    post:
+      operationId: post_api_v1_chat_messages
+      tags:
+      - Chat
+      summary: Tool-using, grounded chat; write tools need confirmation (V2)
+      x-required-role: any authenticated user
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    apiKeyAuth:
+      type: http
+      scheme: bearer
+      description: 'Customer API key: rm_live_<prefix>_<secret>. Scopes are enforced per endpoint (see x-required-role
+        and tags).'
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      schema:
+        type: string
+        maxLength: 128
+      description: Makes record-creating POST requests safe to retry (stored 24 h).
+  responses:
+    Unauthorized:
+      description: Missing or invalid credentials
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: Authenticated but not permitted (role, scope or tenant)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    RateLimited:
+      description: Rate limit exceeded
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+  schemas:
+    Error:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        trace_id:
+          type: string
+        details:
+          type: object
+      required:
+      - code
+      - message
+    ConfidenceState:
+      type: string
+      enum:
+      - high
+      - limited
+      - insufficient_evidence
+    MatchState:
+      type: string
+      enum:
+      - confirmed
+      - probable
+      - ambiguous
+      - unmatched
+    RawAttribute:
+      type: object
+      properties:
+        name:
+          type: string
+        raw_value:
+          type: string
+        source:
+          type: string
+          enum:
+          - parser
+          - llm
+        source_span:
+          type: object
+          properties:
+            start:
+              type: integer
+            end:
+              type: integer
+      required:
+      - name
+      - raw_value
+    SignupRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 12
+        display_name:
+          type: string
+      required:
+      - email
+      - password
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+        totp_code:
+          type: string
+      required:
+      - email
+      - password
+    TokenResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+        expires_in:
+          type: integer
+        token_type:
+          type: string
+          enum:
+          - Bearer
+      required:
+      - access_token
+      - expires_in
+      - token_type
+    User:
+      type: object
+      properties:
+        id: *id001
+        email:
+          type: string
+        display_name:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+        org_id: *id001
+    Product:
+      type: object
+      properties:
+        id: *id001
+        name:
+          type: string
+        manufacturer:
+          type: string
+        category:
+          type: string
+        generation:
+          type: string
+        mpn:
+          type: string
+      required:
+      - id
+      - name
+      - category
+    Variant:
+      type: object
+      properties:
+        id: *id001
+        product_id: *id001
+        configuration:
+          type: object
+        label:
+          type: string
+      required:
+      - id
+      - product_id
+    ProductSearchResult:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Product'
+        next_cursor:
+          type: string
+    IdentifyRequest:
+      type: object
+      properties:
+        marketplace_key:
+          type: string
+        external_id:
+          type: string
+        url:
+          type: string
+          format: uri
+        attributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/RawAttribute'
+      required:
+      - marketplace_key
+      - external_id
+    IdentifyResponse:
+      type: object
+      properties:
+        match_state:
+          $ref: '#/components/schemas/MatchState'
+        variant:
+          $ref: '#/components/schemas/Variant'
+        product:
+          $ref: '#/components/schemas/Product'
+        candidates:
+          type: array
+          items:
+            $ref: '#/components/schemas/Variant'
+        view:
+          $ref: '#/components/schemas/ProductView'
+      required:
+      - match_state
+    CorrectionRequest:
+      type: object
+      properties:
+        listing_external_id:
+          type: string
+        marketplace_key:
+          type: string
+        suggested_variant_id: *id001
+        note:
+          type: string
+      required:
+      - listing_external_id
+      - marketplace_key
+    EvidenceRef:
+      type: object
+      properties:
+        evidence_id: *id001
+        source_type:
+          type: string
+          enum:
+          - independent_test
+          - expert_test
+          - manufacturer
+          - marketplace
+          - community
+          - other_authorized
+        trust_tier:
+          type: integer
+          enum:
+          - 1
+          - 2
+          - 3
+        label:
+          type: string
+        observed_at: &id004
+          type: string
+          format: date-time
+        verification_state:
+          type: string
+          enum:
+          - unverified
+          - verified
+          - rejected
+          - withdrawn
+      required:
+      - evidence_id
+      - source_type
+      - trust_tier
+    ParameterResult:
+      type: object
+      properties:
+        key:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+          enum:
+          - scored
+          - not_scored
+          - conflicted
+        score: &id003
+          type:
+          - number
+          - 'null'
+        weight: &id002
+          type: number
+        is_critical:
+          type: boolean
+        evidence:
+          type: array
+          items:
+            $ref: '#/components/schemas/EvidenceRef'
+      required:
+      - key
+      - status
+    Confidence:
+      type: object
+      properties:
+        state:
+          $ref: '#/components/schemas/ConfidenceState'
+        score: *id002
+        coverage: *id002
+        reasons:
+          type: array
+          items:
+            type: string
+      required:
+      - state
+    Evaluation:
+      type: object
+      properties:
+        evaluation_id: *id001
+        variant_id: *id001
+        model:
+          type: object
+          properties:
+            name:
+              type: string
+            version:
+              type: string
+        overall_score: *id003
+        confidence:
+          $ref: '#/components/schemas/Confidence'
+        parameters:
+          type: array
+          items:
+            $ref: '#/components/schemas/ParameterResult'
+        limitations:
+          type: array
+          items:
+            type: string
+        value_signal:
+          type:
+          - object
+          - 'null'
+          description: Separate, price-dependent signal computed at read time; never part of the stored evaluation.
+        created_at: *id004
+      required:
+      - evaluation_id
+      - variant_id
+      - confidence
+      - parameters
+    EvaluationHistory:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Evaluation'
+    CommunityInsights:
+      type: object
+      properties:
+        sample_size:
+          type: integer
+        themes:
+          type: array
+          items:
+            type: object
+            properties:
+              label:
+                type: string
+              polarity:
+                type: string
+              count:
+                type: integer
+              feedback_ids:
+                type: array
+                items: *id001
+        review_quality_signals:
+          type: array
+          items:
+            type: object
+            properties:
+              signal_type:
+                type: string
+              strength: *id002
+        ai_generated:
+          type: boolean
+        status:
+          type: string
+          enum:
+          - available
+          - not_enough_feedback
+          - unavailable
+    ExpertAssessmentSummary:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - published
+          - none
+        findings:
+          type: array
+          items:
+            type: object
+        published_at: *id004
+    Offer:
+      type: object
+      properties:
+        offer_id: *id001
+        seller:
+          type: string
+        price: *id002
+        currency:
+          type: string
+        availability:
+          type: string
+        source:
+          type: string
+        observed_at: *id004
+        stale:
+          type: boolean
+      required:
+      - offer_id
+      - price
+      - currency
+      - observed_at
+    ProductView:
+      type: object
+      properties:
+        evaluation:
+          $ref: '#/components/schemas/Evaluation'
+        community:
+          $ref: '#/components/schemas/CommunityInsights'
+        expert:
+          $ref: '#/components/schemas/ExpertAssessmentSummary'
+        offers:
+          type: array
+          items:
+            $ref: '#/components/schemas/Offer'
+        alternatives:
+          type: array
+          items:
+            $ref: '#/components/schemas/Variant'
+      description: Three trust outputs are separate and never blended into one number.
+    Explanation:
+      type: object
+      properties:
+        text:
+          type: string
+        ai_generated:
+          type: boolean
+        referenced_parameters:
+          type: array
+          items:
+            type: string
+        mode:
+          type: string
+          enum:
+          - ai
+          - template
+        trace_id:
+          type: string
+      required:
+      - text
+      - ai_generated
+    PricePoint:
+      type: object
+      properties:
+        observed_at: *id004
+        price: *id002
+        currency:
+          type: string
+        source:
+          type: string
+    PriceHistory:
+      type: object
+      properties:
+        windows:
+          type: object
+        coverage_days:
+          type: integer
+        points:
+          type: array
+          items:
+            $ref: '#/components/schemas/PricePoint'
+    FeedbackCreate:
+      type: object
+      properties:
+        ratings:
+          type: object
+        issues:
+          type: array
+          items:
+            type: string
+        usage_context:
+          type: string
+        body:
+          type: string
+      required:
+      - ratings
+    Feedback:
+      type: object
+      properties:
+        id: *id001
+        variant_id: *id001
+        state:
+          type: string
+          enum:
+          - pending
+          - approved
+          - rejected
+          - flagged
+        ratings:
+          type: object
+        body:
+          type: string
+        created_at: *id004
+    ModerationDecision:
+      type: object
+      properties:
+        decision:
+          type: string
+          enum:
+          - approve
+          - reject
+          - flag
+        reason:
+          type: string
+      required:
+      - decision
+    ComparisonRequest:
+      type: object
+      properties:
+        variant_ids:
+          type: array
+          items: *id001
+          minItems: 2
+          maxItems: 5
+      required:
+      - variant_ids
+    ComparisonResult:
+      type: object
+      properties:
+        category:
+          type: string
+        rows:
+          type: array
+          items:
+            type: object
+        summary:
+          $ref: '#/components/schemas/Explanation'
+    RequirementsText:
+      type: object
+      properties:
+        text:
+          type: string
+          maxLength: 2000
+      required:
+      - text
+    Requirements:
+      type: object
+      properties:
+        category:
+          type:
+          - string
+          - 'null'
+        hard:
+          type: object
+        preferences:
+          type: object
+        use_case:
+          type:
+          - string
+          - 'null'
+        clarifications_needed:
+          type: array
+          items:
+            type: string
+      required:
+      - hard
+      - preferences
+      - clarifications_needed
+    RecommendationRequest:
+      type: object
+      properties:
+        requirements:
+          $ref: '#/components/schemas/Requirements'
+      required:
+      - requirements
+    RecommendationResult:
+      type: object
+      properties:
+        ranked:
+          type: array
+          items:
+            type: object
+            properties:
+              variant_id: *id001
+              fit_score: *id002
+              confidence_factor: *id002
+              confidence:
+                $ref: '#/components/schemas/ConfidenceState'
+              constraints_passed:
+                type: array
+                items:
+                  type: string
+        rejected:
+          type: array
+          items:
+            type: object
+            properties:
+              variant_id: *id001
+              failed_constraint:
+                type: string
+        suggested_relaxation:
+          type:
+          - object
+          - 'null'
+        explanation:
+          $ref: '#/components/schemas/Explanation'
+    SavedProduct:
+      type: object
+      properties:
+        id: *id001
+        variant_id: *id001
+        created_at: *id004
+    SaveRequest:
+      type: object
+      properties:
+        variant_id: *id001
+      required:
+      - variant_id
+    PriceAlertCreate:
+      type: object
+      properties:
+        variant_id: *id001
+        kind:
+          type: string
+          enum:
+          - drop
+          - target
+        target_price: *id002
+      required:
+      - variant_id
+      - kind
+    PriceAlert:
+      type: object
+      properties:
+        id: *id001
+        variant_id: *id001
+        kind:
+          type: string
+        target_price: *id003
+        active:
+          type: boolean
+    NotificationSetting:
+      type: object
+      properties:
+        type:
+          type: string
+        channel:
+          type: string
+          enum:
+          - in_app
+          - email
+          - browser
+          - mobile
+        enabled:
+          type: boolean
+      required:
+      - type
+      - channel
+      - enabled
+    NotificationSettings:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/NotificationSetting'
+    EvidenceUpload:
+      type: object
+      properties:
+        variant_id: *id001
+        parameter_key:
+          type: string
+        source_type:
+          type: string
+        methodology:
+          type: string
+        file:
+          type: string
+          format: binary
+      required:
+      - variant_id
+      - parameter_key
+      - source_type
+      - file
+    Evidence:
+      type: object
+      properties:
+        evidence_id: *id001
+        version:
+          type: integer
+        scan_status:
+          type: string
+        ref:
+          $ref: '#/components/schemas/EvidenceRef'
+    ExpertCaseCreate:
+      type: object
+      properties:
+        variant_id: *id001
+        reason:
+          type: string
+        evidence_ids:
+          type: array
+          items: *id001
+      required:
+      - variant_id
+      - reason
+    ExpertCase:
+      type: object
+      properties:
+        id: *id001
+        variant_id: *id001
+        state:
+          type: string
+        created_at: *id004
+    AssignRequest:
+      type: object
+      properties:
+        expert_id: *id001
+      required:
+      - expert_id
+    AssessmentSubmit:
+      type: object
+      properties:
+        methodology:
+          type: string
+        test_conditions:
+          type: string
+        findings:
+          type: array
+          items:
+            type: object
+        limitations:
+          type: string
+        conflict_declaration:
+          type: object
+      required:
+      - methodology
+      - findings
+    AssessmentReview:
+      type: object
+      properties:
+        decision:
+          type: string
+          enum:
+          - approve
+          - reject
+          - return
+        comments:
+          type: string
+      required:
+      - decision
+    MappingQueueItem:
+      type: object
+      properties:
+        id: *id001
+        listing_id: *id001
+        candidates:
+          type: array
+          items:
+            $ref: '#/components/schemas/Variant'
+        reason:
+          type: string
+    MappingResolution:
+      type: object
+      properties:
+        action:
+          type: string
+          enum:
+          - confirm
+          - change
+          - split
+        variant_id: *id001
+      required:
+      - action
+    EvaluationModelVersionCreate:
+      type: object
+      properties:
+        definition:
+          type: object
+      required:
+      - definition
+    EvaluationModelVersion:
+      type: object
+      properties:
+        id: *id001
+        model:
+          type: string
+        version:
+          type: string
+        status:
+          type: string
+          enum:
+          - draft
+          - review
+          - published
+          - retired
+        published_at: *id004
+    AuditEntry:
+      type: object
+      properties:
+        id: *id001
+        actor_id: *id001
+        action:
+          type: string
+        object_type:
+          type: string
+        object_id: *id001
+        occurred_at: *id004
+        trace_id:
+          type: string
+    Integration:
+      type: object
+      properties:
+        marketplace:
+          type: string
+        status:
+          type: string
+        last_sync_at: *id004
+        freshness_seconds:
+          type: integer
+        last_error:
+          type: string
+    ApiKeyCreate:
+      type: object
+      properties:
+        name:
+          type: string
+        scopes:
+          type: array
+          items:
+            type: string
+        expires_at: *id004
+      required:
+      - name
+      - scopes
+    ApiKey:
+      type: object
+      properties:
+        id: *id001
+        name:
+          type: string
+        prefix:
+          type: string
+        scopes:
+          type: array
+          items:
+            type: string
+        last_used_at: *id004
+        expires_at: *id004
+    ApiKeyCreated:
+      allOf:
+      - $ref: '#/components/schemas/ApiKey'
+      - type: object
+        properties:
+          secret:
+            type: string
+            description: Shown once, never retrievable again.
+        required:
+        - secret
+    WebhookCreate:
+      type: object
+      properties:
+        url:
+          type: string
+          format: uri
+        event_types:
+          type: array
+          items:
+            type: string
+      required:
+      - url
+      - event_types
+    Webhook:
+      type: object
+      properties:
+        id: *id001
+        url:
+          type: string
+        event_types:
+          type: array
+          items:
+            type: string
+        secret:
+          type: string
+          description: Returned once on creation.
+    AdminUser:
+      type: object
+      properties:
+        id: *id001
+        email:
+          type: string
+        display_name:
+          type: string
+        status:
+          type: string
+          enum:
+          - active
+          - suspended
+          - deleted
+        roles:
+          type: array
+          items:
+            type: string
+        mfa_enabled:
+          type: boolean
+    AdminUserList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminUser'
+        next_cursor:
+          type: string
+    RoleUpdate:
+      type: object
+      properties:
+        roles:
+          type: array
+          items:
+            type: string
+            enum:
+            - consumer
+            - public_reviewer
+            - expert_reviewer
+            - admin
+            - api_consumer
+            - brand
+        reason:
+          type: string
+      required:
+      - roles
+    EvaluationModelCreate:
+      type: object
+      properties:
+        category_key:
+          type: string
+        name:
+          type: string
+      required:
+      - category_key
+      - name
+    EvaluationModel:
+      type: object
+      properties:
+        id: *id001
+        category_key:
+          type: string
+        name:
+          type: string
+        versions:
+          type: array
+          items:
+            $ref: '#/components/schemas/EvaluationModelVersion'
+    EvidenceVersion:
+      type: object
+      properties:
+        version:
+          type: integer
+        observed_at: *id004
+        verification_state:
+          type: string
+        created_by: *id001
+        withdrawn_at: *id004
+    EvidenceVersions:
+      type: object
+      properties:
+        evidence_id: *id001
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/EvidenceVersion'
+    WebhookDelivery:
+      type: object
+      properties:
+        id: *id001
+        event_id:
+          type: string
+        attempt:
+          type: integer
+        status_code:
+          type: integer
+        state:
+          type: string
+          enum:
+          - pending
+          - delivered
+          - retrying
+          - failed
+        next_retry_at: *id004
+    ChatRequest:
+      type: object
+      properties:
+        conversation_id: *id001
+        message:
+          type: string
+          maxLength: 2000
+        confirm_action_token:
+          type: string
+      required:
+      - message
+    ChatResponse:
+      type: object
+      properties:
+        conversation_id: *id001
+        answer:
+          $ref: '#/components/schemas/Explanation'
+        pending_confirmation:
+          type:
+          - object
+          - 'null'
+        unavailable_sections:
+          type: array
+          items:
+            type: string

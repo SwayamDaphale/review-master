@@ -1,0 +1,424 @@
+name: review-master
+
+# =====================================================================
+# Review Master — development / CI stack
+#
+#   cp .env.example .env
+#   docker compose up -d --build                      # core stack
+#   docker compose --profile rag --profile local-llm up -d
+#
+# Optional profiles: rag, local-llm, llm-gateway, enterprise-auth,
+#                    graph, scan, observability, tools
+#
+# Production uses managed PostgreSQL / Redis / object storage with the
+# same backend, worker and frontend images. Pin image tags (replace
+# "latest") before the first production release.
+# =====================================================================
+
+# ---------- shared definitions (YAML anchors) ----------
+x-backend-build: &backend-build
+  context: ./backend
+  dockerfile: Dockerfile
+  target: dev
+
+x-backend-env: &backend-env
+  ENVIRONMENT: development
+  LOG_LEVEL: info
+  CORS_ORIGINS: http://localhost:5173
+
+  # --- data stores ---
+  DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-reviewmaster}
+  REDIS_URL: redis://redis:6379/0
+  CELERY_BROKER_URL: redis://redis:6379/1
+  CELERY_RESULT_BACKEND: redis://redis:6379/2
+
+  # --- object storage (S3-compatible; swap endpoint for AWS S3 / R2 / GCS in prod) ---
+  S3_ENDPOINT_URL: http://objectstore:8333
+  S3_REGION: us-east-1
+  S3_BUCKET_EVIDENCE: ${S3_BUCKET_EVIDENCE:-rm-evidence}
+  S3_ACCESS_KEY: ${S3_ACCESS_KEY:-devaccess}
+  S3_SECRET_KEY: ${S3_SECRET_KEY:-devsecret}
+
+  # --- identity & security (no defaults on purpose: set them in .env) ---
+  AUTH_PROVIDER: ${AUTH_PROVIDER:-builtin}            # builtin | keycloak
+  JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (openssl rand -hex 32)}
+  API_KEY_PEPPER: ${API_KEY_PEPPER:?Set API_KEY_PEPPER in .env (openssl rand -hex 32)}
+  OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:-}
+
+  # --- email ---
+  SMTP_HOST: mailpit
+  SMTP_PORT: "1025"
+  EMAIL_FROM: ${EMAIL_FROM:-no-reply@reviewmaster.local}
+
+  # --- LLM access: one OpenAI-compatible endpoint (Ollama, LiteLLM gateway, or a provider) ---
+  LLM_BASE_URL: ${LLM_BASE_URL:-http://ollama:11434/v1}
+  LLM_API_KEY: ${LLM_API_KEY:-ollama}
+  LLM_MODEL_FAST: ${LLM_MODEL_FAST:-qwen3.5:latest}
+  LLM_MODEL_STRONG: ${LLM_MODEL_STRONG:-qwen3.5:latest}
+  EMBEDDING_MODEL: ${EMBEDDING_MODEL:-bge-m3}
+
+  # --- AI orchestration caps (per deployment, never per request) ---
+  MAX_TOOL_CALLS: "6"
+  MAX_LLM_ITERATIONS: "2"
+  COST_CEILING_USD: ${COST_CEILING_USD:-0.05}         # dev placeholder, tune with real usage data
+
+  # --- optional features (flags default off; enable with the matching profile) ---
+  FEATURE_RAG_ENABLED: ${FEATURE_RAG_ENABLED:-false}
+  QDRANT_HOST: qdrant
+  QDRANT_PORT: "6333"
+  QDRANT_COLLECTION: rm_approved_documents
+  FEATURE_UPLOAD_SCAN: ${FEATURE_UPLOAD_SCAN:-false}
+  CLAMAV_HOST: clamav
+  CLAMAV_PORT: "3310"
+
+  # --- observability ---
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+  SENTRY_DSN: ${SENTRY_DSN:-}
+
+services:
+  # ==========================================
+  # PostgreSQL — source of truth (catalog, evaluations, evidence, auth, audit)
+  # ==========================================
+  postgres:
+    image: postgres:17
+    container_name: rm-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-reviewmaster}
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-reviewmaster}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+
+  # ==========================================
+  # Redis — cache, Celery broker/result, rate limits, idempotency, OTP
+  # ==========================================
+  redis:
+    image: redis:7-alpine
+    container_name: rm-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - redis-data:/data
+
+  # ==========================================
+  # Object storage — evidence files (dev only; SeaweedFS S3 gateway)
+  # MinIO is intentionally not used: its community repo was archived in 2026.
+  # No S3 identities are configured here, so auth is open: local dev only.
+  # Verify the flags against the SeaweedFS version you pin.
+  # ==========================================
+  objectstore:
+    image: chrislusf/seaweedfs:latest
+    container_name: rm-objectstore
+    restart: unless-stopped
+    command: server -dir=/data -s3 -s3.port=8333
+    ports:
+      - "8333:8333"
+    volumes:
+      - objectstore-data:/data
+
+  # ==========================================
+  # Mailpit — catches sign-up verification and price-alert emails in dev
+  # ==========================================
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: rm-mailpit
+    restart: unless-stopped
+    ports:
+      - "8025:8025"   # web UI
+      - "1025:1025"   # SMTP
+
+  # ==========================================
+  # One-shot database migrations (Alembic). Backend waits for this to succeed.
+  # ==========================================
+  migrate:
+    build: *backend-build
+    image: review-master-backend:dev
+    container_name: rm-migrate
+    restart: "no"
+    command: ["alembic", "upgrade", "head"]
+    environment: *backend-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ==========================================
+  # Backend API (FastAPI, modular monolith)
+  # ==========================================
+  backend:
+    build: *backend-build
+    image: review-master-backend:dev
+    container_name: rm-backend
+    restart: unless-stopped
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    ports:
+      - "8000:8000"
+    environment: *backend-env
+    volumes:
+      - ./backend:/app
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      objectstore:
+        condition: service_started
+      mailpit:
+        condition: service_started
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # ==========================================
+  # Celery worker — ingestion, review analysis, price refresh, alerts, recalculation
+  # ==========================================
+  worker:
+    build: *backend-build
+    image: review-master-backend:dev
+    container_name: rm-worker
+    restart: unless-stopped
+    command: ["celery", "-A", "app.worker.celery_app", "worker", "--loglevel=info"]
+    environment: *backend-env
+    volumes:
+      - ./backend:/app
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  # ==========================================
+  # Celery beat — scheduled monitoring (price refresh, stale-data checks, summaries)
+  # ==========================================
+  beat:
+    build: *backend-build
+    image: review-master-backend:dev
+    container_name: rm-beat
+    restart: unless-stopped
+    command: ["celery", "-A", "app.worker.celery_app", "beat", "--loglevel=info", "--schedule", "/tmp/celerybeat-schedule"]
+    environment: *backend-env
+    volumes:
+      - ./backend:/app
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  # ==========================================
+  # Web frontend (React + Vite + TypeScript)
+  # Vite bakes VITE_* values at build time; the dev server reads them at start.
+  # ==========================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: dev
+    container_name: rm-frontend
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_BASE_URL: http://localhost:8000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  # =====================================================================
+  # OPTIONAL SERVICES (enabled with --profile <name>)
+  # =====================================================================
+
+  # ---------- profile: rag ----------
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: rm-qdrant
+    profiles: ["rag"]
+    restart: unless-stopped
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant-data:/qdrant/storage
+
+  # ---------- profile: local-llm ----------
+  ollama:
+    image: ollama/ollama:latest
+    container_name: rm-ollama
+    profiles: ["local-llm"]
+    restart: unless-stopped
+    ports:
+      - "${OLLAMA_PORT:-11434}:11434"
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    volumes:
+      - ollama-data:/root/.ollama
+
+  ollama-init:
+    image: ollama/ollama:latest
+    container_name: rm-ollama-init
+    profiles: ["local-llm"]
+    restart: "no"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - "ollama pull ${LLM_MODEL_FAST:-qwen3.5:latest} && ollama pull ${EMBEDDING_MODEL:-bge-m3}"
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    depends_on:
+      ollama:
+        condition: service_healthy
+
+  # ---------- profile: llm-gateway ----------
+  # Holds the provider API keys. The backend only holds a gateway key.
+  # To route the backend through it, set in .env:
+  #   LLM_BASE_URL=http://litellm:4000/v1  LLM_API_KEY=<gateway key>
+  #   LLM_MODEL_FAST=rm-fast  LLM_MODEL_STRONG=rm-strong  EMBEDDING_MODEL=rm-embed
+  litellm:
+    image: ghcr.io/berriai/litellm:main-stable
+    container_name: rm-litellm
+    profiles: ["llm-gateway"]
+    restart: unless-stopped
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    ports:
+      - "4000:4000"
+    environment:
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-sk-dev-change-me}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/litellm
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    volumes:
+      - ./docker/litellm/config.yaml:/app/config.yaml:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ---------- profile: enterprise-auth ----------
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    container_name: rm-keycloak
+    profiles: ["enterprise-auth"]
+    restart: unless-stopped
+    command: ["start-dev"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: ${POSTGRES_USER:-postgres}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "8081:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ---------- profile: graph (V3 context graph) ----------
+  neo4j:
+    image: neo4j:latest
+    container_name: rm-neo4j
+    profiles: ["graph"]
+    restart: unless-stopped
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    environment:
+      NEO4J_AUTH: ${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD:-password}
+    volumes:
+      - neo4j-data:/data
+      - neo4j-logs:/logs
+
+  # ---------- profile: scan (uploaded evidence is untrusted) ----------
+  clamav:
+    image: clamav/clamav:stable
+    container_name: rm-clamav
+    profiles: ["scan"]
+    restart: unless-stopped
+    ports:
+      - "3310:3310"
+    volumes:
+      - clamav-data:/var/lib/clamav
+
+  # ---------- profile: observability ----------
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: rm-prometheus
+    profiles: ["observability"]
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: rm-grafana
+    profiles: ["observability"]
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+    volumes:
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
+  # ---------- profile: tools ----------
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: rm-pgadmin
+    profiles: ["tools"]
+    restart: unless-stopped
+    ports:
+      - "5050:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@example.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin}
+    depends_on:
+      - postgres
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+
+volumes:
+  postgres-data:
+  redis-data:
+  objectstore-data:
+  qdrant-data:
+  ollama-data:
+  neo4j-data:
+  neo4j-logs:
+  clamav-data:
+  prometheus-data:
+  grafana-data:
+  pgadmin-data:

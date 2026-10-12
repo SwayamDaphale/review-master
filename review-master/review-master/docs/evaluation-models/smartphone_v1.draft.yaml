@@ -1,0 +1,181 @@
+# DRAFT evaluation model - NOT FOR PUBLICATION
+# Parameter names come from the Master Project Capsule section 17 ("starting design examples,
+# not final production weights"). Everything marked `proposed` is a suggestion for domain experts
+# to confirm or replace. `null` means "must be decided before this model can be published".
+# The publish endpoint must reject a model where any weight/threshold is null or weights do not sum to 1.0.
+model: smartphone
+version: 1-draft
+status: draft
+approvals:
+  domain_expert: null
+  engineering: null
+  approved_at: null
+weights_must_sum_to: 1.0
+notes: Parameter list from capsule section 17. Inputs, critical flags and rule types are proposals.
+quality_parameters:
+- key: performance
+  name: Performance
+  definition: Real-world speed and sustained responsiveness.
+  weight: null
+  critical:
+    proposed: true
+  inputs:
+  - chipset
+  - ram_gb
+  - storage_type
+  - benchmark_score
+  - sustained_performance_score
+  scoring_rule:
+    type: linear_range
+    thresholds: null
+  evidence_requirements:
+    min_trust_tier_to_score: 2
+    preferred_source: independent_test
+    max_age_days: null
+- key: battery_charging
+  name: Battery and charging
+  definition: Battery life and charging speed.
+  weight: null
+  critical:
+    proposed: true
+  inputs:
+  - battery_capacity_mah
+  - charging_wattage
+  - tested_battery_life_hours
+  scoring_rule:
+    type: linear_range
+    thresholds: null
+  evidence_requirements:
+    min_trust_tier_to_score: 2
+    preferred_source: independent_test
+    max_age_days: null
+- key: camera
+  name: Camera
+  definition: Image and video quality.
+  weight: null
+  critical:
+    proposed: true
+  inputs:
+  - main_sensor_mp
+  - sensor_size
+  - stabilization
+  - camera_test_score
+  scoring_rule:
+    type: linear_range
+    thresholds: null
+  evidence_requirements:
+    min_trust_tier_to_score: 2
+    preferred_source: independent_test
+    max_age_days: null
+- key: display
+  name: Display
+  definition: Panel quality, brightness, smoothness.
+  weight: null
+  critical:
+    proposed: false
+  inputs:
+  - panel_type
+  - resolution
+  - peak_brightness_nits
+  - refresh_rate_hz
+  - display_test_score
+  scoring_rule:
+    type: piecewise
+    thresholds: null
+  evidence_requirements:
+    min_trust_tier_to_score: 2
+    preferred_source: manufacturer_or_marketplace_spec_ok
+    max_age_days: null
+- key: software_updates
+  name: Software and updates
+  definition: OS experience and update commitment.
+  weight: null
+  critical:
+    proposed: false
+  inputs:
+  - os_version
+  - guaranteed_os_updates_years
+  - guaranteed_security_updates_years
+  scoring_rule:
+    type: ordinal
+    thresholds: null
+  evidence_requirements:
+    min_trust_tier_to_score: 2
+    preferred_source: manufacturer_or_marketplace_spec_ok
+    max_age_days: null
+- key: build_durability
+  name: Build and durability
+  definition: Materials, ingress protection, durability.
+  weight: null
+  critical:
+    proposed: false
+  inputs:
+  - ip_rating
+  - glass_protection
+  - materials
+  - durability_test_result
+  scoring_rule:
+    type: ordinal
+    thresholds: null
+  evidence_requirements:
+    min_trust_tier_to_score: 2
+    preferred_source: manufacturer_or_marketplace_spec_ok
+    max_age_days: null
+- key: connectivity_features
+  name: Connectivity and features
+  definition: Radios, ports and notable features.
+  weight: null
+  critical:
+    proposed: false
+  inputs:
+  - five_g_bands
+  - wifi_standard
+  - bluetooth_version
+  - nfc
+  - usb_version
+  scoring_rule:
+    type: ordinal
+    thresholds: null
+  evidence_requirements:
+    min_trust_tier_to_score: 2
+    preferred_source: manufacturer_or_marketplace_spec_ok
+    max_age_days: null
+derived_signals:
+- key: value
+  name: Value
+  kind: derived_price_signal
+  excluded_from_quality_score: true
+  definition: 'Quality relative to current/median offer price. Computed at read time from the quality score and
+    offers; NEVER stored inside an evaluation row. (Proposal pending decision #2 in architecture section 12.)'
+confidence_policy:
+  coverage_floor: 0.4
+  bands:
+    high_min: 0.75
+    limited_min: 0.45
+  component_weights:
+    coverage: 0.35
+    source_quality: 0.25
+    verification: 0.15
+    freshness: 0.15
+    consistency: 0.1
+  tier_factors:
+    '1': 1.0
+    '2': 0.6
+    '3': 0.3
+  high_confidence_min_tier1_share: 0.3
+  freshness_half_life_days:
+    manufacturer_spec: null
+    independent_test: null
+    marketplace: null
+    community: null
+  note: All values are heuristic starting points from the architecture document; calibrate on the reviewed test
+    set.
+publish_checklist:
+- all weights set and sum to 1.0
+- all scoring thresholds set and documented with a rationale
+- evidence requirements and max ages set per parameter
+- critical parameters confirmed by a domain expert
+- calibrated against the manually reviewed test set
+- sensitivity analysis done (rank stability under weight changes)
+- golden evaluation fixtures added to CI
+- explicit approval recorded (domain expert + engineering)

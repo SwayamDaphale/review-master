@@ -1,0 +1,192 @@
+# DRAFT evaluation model - NOT FOR PUBLICATION
+# Parameter names come from the Master Project Capsule section 17 ("starting design examples,
+# not final production weights"). Everything marked `proposed` is a suggestion for domain experts
+# to confirm or replace. `null` means "must be decided before this model can be published".
+# The publish endpoint must reject a model where any weight/threshold is null or weights do not sum to 1.0.
+model: laptop
+version: 1-draft
+status: draft
+approvals:
+  domain_expert: null
+  engineering: null
+  approved_at: null
+weights_must_sum_to: 1.0
+notes: Parameter list from capsule section 17. Inputs, critical flags and rule types are proposals.
+quality_parameters:
+- key: cpu
+  name: CPU
+  definition: Processor performance.
+  weight: null
+  critical:
+    proposed: true
+  inputs:
+  - cpu_model
+  - cores
+  - cpu_benchmark_score
+  scoring_rule:
+    type: linear_range
+    thresholds: null
+  evidence_requirements:
+    min_trust_tier_to_score: 2
+    preferred_source: independent_test
+    max_age_days: null
+- key: gpu
+  name: GPU
+  definition: Graphics performance.
+  weight: null
+  critical:
+    proposed: false
+  inputs:
+  - gpu_model
+  - gpu_benchmark_score
+  scoring_rule:
+    type: linear_range
+    thresholds: null
+  evidence_requirements:
+    min_trust_tier_to_score: 2
+    preferred_source: independent_test
+    max_age_days: null
+- key: ram_storage
+  name: RAM and storage
+  definition: Memory and storage capacity and type.
+  weight: null
+  critical:
+    proposed: true
+  inputs:
+  - ram_gb
+  - ram_type
+  - storage_gb
+  - storage_type
+  scoring_rule:
+    type: piecewise
+    thresholds: null
+  evidence_requirements:
+    min_trust_tier_to_score: 2
+    preferred_source: manufacturer_or_marketplace_spec_ok
+    max_age_days: null
+- key: display
+  name: Display
+  definition: Panel quality and usability.
+  weight: null
+  critical:
+    proposed: false
+  inputs:
+  - panel_type
+  - resolution
+  - brightness_nits
+  - color_gamut
+  - refresh_rate_hz
+  scoring_rule:
+    type: piecewise
+    thresholds: null
+  evidence_requirements:
+    min_trust_tier_to_score: 2
+    preferred_source: manufacturer_or_marketplace_spec_ok
+    max_age_days: null
+- key: battery
+  name: Battery
+  definition: Battery life.
+  weight: null
+  critical:
+    proposed: true
+  inputs:
+  - battery_capacity_wh
+  - tested_battery_life_hours
+  scoring_rule:
+    type: linear_range
+    thresholds: null
+  evidence_requirements:
+    min_trust_tier_to_score: 2
+    preferred_source: independent_test
+    max_age_days: null
+- key: thermal_sustained
+  name: Thermals and sustained performance
+  definition: Throttling, noise, surface temperature under load.
+  weight: null
+  critical:
+    proposed: false
+  inputs:
+  - sustained_benchmark_ratio
+  - fan_noise_db
+  - surface_temp_c
+  scoring_rule:
+    type: linear_range
+    thresholds: null
+  evidence_requirements:
+    min_trust_tier_to_score: 2
+    preferred_source: independent_test
+    max_age_days: null
+- key: build_portability
+  name: Build and portability
+  definition: Weight, thickness, materials.
+  weight: null
+  critical:
+    proposed: false
+  inputs:
+  - weight_kg
+  - thickness_mm
+  - materials
+  scoring_rule:
+    type: piecewise
+    thresholds: null
+  evidence_requirements:
+    min_trust_tier_to_score: 2
+    preferred_source: manufacturer_or_marketplace_spec_ok
+    max_age_days: null
+- key: connectivity_upgradeability
+  name: Connectivity and upgradeability
+  definition: Ports, wireless, user-upgradeable parts.
+  weight: null
+  critical:
+    proposed: false
+  inputs:
+  - ports
+  - wifi_standard
+  - ram_upgradeable
+  - storage_slots
+  scoring_rule:
+    type: ordinal
+    thresholds: null
+  evidence_requirements:
+    min_trust_tier_to_score: 2
+    preferred_source: manufacturer_or_marketplace_spec_ok
+    max_age_days: null
+derived_signals:
+- key: value
+  name: Value
+  kind: derived_price_signal
+  excluded_from_quality_score: true
+  definition: 'Quality relative to current/median offer price. Computed at read time from the quality score and
+    offers; NEVER stored inside an evaluation row. (Proposal pending decision #2 in architecture section 12.)'
+confidence_policy:
+  coverage_floor: 0.4
+  bands:
+    high_min: 0.75
+    limited_min: 0.45
+  component_weights:
+    coverage: 0.35
+    source_quality: 0.25
+    verification: 0.15
+    freshness: 0.15
+    consistency: 0.1
+  tier_factors:
+    '1': 1.0
+    '2': 0.6
+    '3': 0.3
+  high_confidence_min_tier1_share: 0.3
+  freshness_half_life_days:
+    manufacturer_spec: null
+    independent_test: null
+    marketplace: null
+    community: null
+  note: All values are heuristic starting points from the architecture document; calibrate on the reviewed test
+    set.
+publish_checklist:
+- all weights set and sum to 1.0
+- all scoring thresholds set and documented with a rationale
+- evidence requirements and max ages set per parameter
+- critical parameters confirmed by a domain expert
+- calibrated against the manually reviewed test set
+- sensitivity analysis done (rank stability under weight changes)
+- golden evaluation fixtures added to CI
+- explicit approval recorded (domain expert + engineering)

@@ -343,7 +343,7 @@ jobs:
 
       - name: Build (and push on main)
         if: steps.check_service.outputs.ready == 'true'
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ./${{ matrix.service }}
           target: prod

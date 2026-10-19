@@ -266,7 +266,8 @@ jobs:
           (cd extension && npm ci && npm audit --audit-level=high)
 
       - name: Filesystem vulnerability scan
-        uses: aquasecurity/trivy-action@0.28.0
+        # aquasecurity/trivy-action release v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
         with:
           scan-type: fs
           severity: HIGH,CRITICAL

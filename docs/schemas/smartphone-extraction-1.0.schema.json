@@ -1,0 +1,319 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://review-master.local/schemas/smartphone-extraction-1.0.schema.json",
+  "title": "Review Master Smartphone Extraction Record",
+  "description": "One user-initiated extraction snapshot from a supported Amazon India smartphone product page. This schema captures data; it does not score or recommend products.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "source",
+    "raw_extraction",
+    "normalized",
+    "validation"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "record_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Optional client-generated UUID. Do not use the product URL as the record ID."
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "marketplace",
+        "product_url",
+        "extracted_at",
+        "extraction_method",
+        "extension_version"
+      ],
+      "properties": {
+        "marketplace": {
+          "const": "amazon.in"
+        },
+        "product_url": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://www\\.amazon\\.in/"
+        },
+        "extracted_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "extraction_method": {
+          "const": "browser_extension_user_initiated"
+        },
+        "extension_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "page_title": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "asin": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[A-Z0-9]{10}$"
+        }
+      }
+    },
+    "raw_extraction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "title",
+        "brand_text",
+        "model_text",
+        "variant_text",
+        "price_text",
+        "rating_text",
+        "review_count_text",
+        "specifications_text"
+      ],
+      "properties": {
+        "title": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "brand_text": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "model_text": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "variant_text": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "price_text": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "rating_text": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "review_count_text": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "availability_text": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "specifications_text": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "label",
+              "value"
+            ],
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "normalized": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "category",
+        "brand",
+        "model_name",
+        "model_number",
+        "ram_gb",
+        "storage_gb",
+        "display_size_inches",
+        "battery_capacity_mah",
+        "operating_system",
+        "supports_5g",
+        "price_amount",
+        "currency",
+        "rating",
+        "review_count"
+      ],
+      "properties": {
+        "category": {
+          "const": "smartphone"
+        },
+        "brand": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "model_name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "model_number": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "ram_gb": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "exclusiveMinimum": 0
+        },
+        "storage_gb": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "exclusiveMinimum": 0
+        },
+        "display_size_inches": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "exclusiveMinimum": 0
+        },
+        "battery_capacity_mah": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "exclusiveMinimum": 0
+        },
+        "operating_system": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "processor": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "supports_5g": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "price_amount": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "currency": {
+          "enum": [
+            "INR",
+            null
+          ]
+        },
+        "rating": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 5
+        },
+        "review_count": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "availability": {
+          "enum": [
+            "in_stock",
+            "out_of_stock",
+            "unknown",
+            null
+          ]
+        }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "warnings",
+        "errors",
+        "identity_status"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "valid",
+            "needs_review",
+            "invalid"
+          ]
+        },
+        "identity_status": {
+          "enum": [
+            "identified",
+            "probable",
+            "ambiguous",
+            "unmatched"
+          ]
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "errors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

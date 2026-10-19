@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Review Master - Extractor</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="header">
+    <div class="logo-area">
+      <div class="badge-tag">Review Master v1.0</div>
+      <h1>Smartphone Extractor</h1>
+    </div>
+    <div id="statusIndicator" class="status-indicator status-idle">Ready</div>
+  </div>
+
+  <div class="notice-box">
+    <strong>User-Initiated Mode:</strong> Extraction reads only page-visible specs on Amazon India. No background crawling, cookies, or account data accessed.
+  </div>
+
+  <div class="actions">
+    <button id="extractBtn" class="primary-btn">Extract Smartphone Data</button>
+    <button id="downloadBtn" class="secondary-btn" disabled>Download Validated JSON</button>
+  </div>
+
+  <!-- Messages & Warnings -->
+  <div id="messageContainer" class="message-container hidden"></div>
+
+  <!-- Results Preview -->
+  <div id="resultsContainer" class="results-container hidden">
+    <div class="section-title">
+      <h3>Extraction Summary</h3>
+      <span id="validationBadge" class="badge">valid</span>
+    </div>
+
+    <div class="summary-card">
+      <div class="summary-row">
+        <span class="label">Product:</span>
+        <span id="productTitleSummary" class="value strong">-</span>
+      </div>
+      <div class="summary-grid">
+        <div class="grid-item">
+          <span class="label">Brand:</span>
+          <span id="brandVal" class="val">-</span>
+        </div>
+        <div class="grid-item">
+          <span class="label">Model:</span>
+          <span id="modelVal" class="val">-</span>
+        </div>
+        <div class="grid-item">
+          <span class="label">Config:</span>
+          <span id="configVal" class="val">-</span>
+        </div>
+        <div class="grid-item">
+          <span class="label">Price:</span>
+          <span id="priceVal" class="val highlight">-</span>
+        </div>
+        <div class="grid-item">
+          <span class="label">Battery:</span>
+          <span id="batteryVal" class="val">-</span>
+        </div>
+        <div class="grid-item">
+          <span class="label">Display:</span>
+          <span id="displayVal" class="val">-</span>
+        </div>
+        <div class="grid-item">
+          <span class="label">5G Support:</span>
+          <span id="networkVal" class="val">-</span>
+        </div>
+        <div class="grid-item">
+          <span class="label">Processor:</span>
+          <span id="processorVal" class="val">-</span>
+        </div>
+        <div class="grid-item">
+          <span class="label">Identity:</span>
+          <span id="identityVal" class="val">-</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="preview-tabs">
+      <button class="tab-btn active" data-tab="normalizedTab">Normalized</button>
+      <button class="tab-btn" data-tab="rawTab">Raw Text</button>
+      <button class="tab-btn" data-tab="warningsTab">Warnings (<span id="warningCount">0</span>)</button>
+    </div>
+
+    <div id="normalizedTab" class="tab-content active">
+      <pre id="normalizedJson" class="code-block"></pre>
+    </div>
+
+    <div id="rawTab" class="tab-content">
+      <pre id="rawJson" class="code-block"></pre>
+    </div>
+
+    <div id="warningsTab" class="tab-content">
+      <div id="warningsList" class="warnings-list"></div>
+    </div>
+  </div>
+
+  <script src="../src/content-script.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

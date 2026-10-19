@@ -1,0 +1,13 @@
+{
+  "name": "review-master-extension",
+  "version": "1.0.0",
+  "description": "Review Master - User-initiated Amazon India smartphone information extraction extension",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test tests/**/*.test.mjs",
+    "check-permissions": "node scripts/check-permissions.mjs"
+  },
+  "devDependencies": {}
+}

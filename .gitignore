@@ -10,6 +10,8 @@ __pycache__/
 *.py[cod]
 .venv/
 venv/
+mr_env/
+backend/mr_env/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/

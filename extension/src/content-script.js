@@ -80,23 +80,35 @@ function extractAmazonSmartphoneData() {
       if (!ramText || typeof ramText !== 'string') return null;
       const cleaned = cleanText(ramText);
       if (!cleaned) return null;
+
+      // 1. TB branch (convert to GB: 1 TB = 1024 GB, plausible smartphone range: 1-64 GB)
       const tbMatch = cleaned.match(/([0-9]+(?:\.[0-9]+)?)\s*TB/i);
-      if (tbMatch) return parseFloat(tbMatch[1]) * 1024;
+      if (tbMatch) {
+        const val = parseFloat(tbMatch[1]) * 1024;
+        return val >= 1 && val <= 64 ? val : null;
+      }
+
+      // 2. GB branch (plausible smartphone range: 1-64 GB)
       const gbMatch = cleaned.match(/([0-9]+(?:\.[0-9]+)?)\s*GB/i);
       if (gbMatch) {
         const val = parseFloat(gbMatch[1]);
         return val >= 1 && val <= 64 ? val : null;
       }
+
+      // 3. MB branch (convert to GB: e.g. 1024 MB = 1 GB; plausible range: 1-64 GB)
       const mbMatch = cleaned.match(/([0-9]+(?:\.[0-9]+)?)\s*MB/i);
       if (mbMatch) {
         const val = parseFloat((parseFloat(mbMatch[1]) / 1024).toFixed(3));
-        return val >= 1 ? val : null;
+        return val >= 1 && val <= 64 ? val : null;
       }
+
+      // 4. Bare number branch (plausible range: 1-64 GB)
       const numMatch = cleaned.match(/^([0-9]+(?:\.[0-9]+)?)$/);
       if (numMatch) {
         const val = parseFloat(numMatch[1]);
         return val >= 1 && val <= 64 ? val : null;
       }
+
       return null;
     }
 
@@ -119,21 +131,21 @@ function extractAmazonSmartphoneData() {
       if (!cleaned) return null;
 
       // 1. Parenthetical inches inside cm spec: e.g. 17.42 cm (6.9"), 17.47 cm (6.88"), 16.75cm(6.59), 17.27 cm (6.8 inch)
-      const parenInchMatch = cleaned.match(/([0-9]+(?:\.[0-9]+)?)\s*cm\s*\(\s*([0-9]+(?:\.[0-9]+)?)\s*(?:inch|inches|["”″″'’′]|\-inch)?\s*\)/i);
+      const parenInchMatch = cleaned.match(/([0-9]+(?:\.[0-9]+)?)\s*(?:cm|centimetres|centimeters)\s*\(\s*([0-9]+(?:\.[0-9]+)?)\s*(?:inch|inches|\bin\.?(?=\s|$)|["”″″'’′]|\-inch)?\s*\)/i);
       if (parenInchMatch) {
         const inches = parseFloat(parenInchMatch[2]);
         if (inches >= 3.0 && inches <= 15.0) return inches;
       }
 
-      // 2. Explicit inches: e.g. 6.8 Inches, 6.67", 6.8 inch, 6.9”
-      const inchMatch = cleaned.match(/([0-9]+(?:\.[0-9]+)?)\s*(?:inches|inch|["”″″'’′]|\-inch)/i);
+      // 2. Explicit inches: e.g. 6.8 Inches, 6.67", 6.8 inch, 6.9”, 6.88 in, 6.9 in.
+      const inchMatch = cleaned.match(/([0-9]+(?:\.[0-9]+)?)\s*(?:inches|inch|\bin\.?(?=\s|$)|["”″″'’′]|\-inch)/i);
       if (inchMatch) {
         const val = parseFloat(inchMatch[1]);
         if (val >= 3.0 && val <= 15.0) return val;
       }
 
-      // 3. Standalone cm: e.g. 15.54 cm -> 15.54 / 2.54 = 6.12
-      const cmMatch = cleaned.match(/([0-9]+(?:\.[0-9]+)?)\s*cm/i);
+      // 3. Standalone cm or centimetres / centimeters: e.g. 15.54 cm -> 15.54 / 2.54 = 6.12, 17.47 Centimetres -> 6.88
+      const cmMatch = cleaned.match(/([0-9]+(?:\.[0-9]+)?)\s*(?:cm|centimetres|centimeters)\b/i);
       if (cmMatch) {
         const inches = parseFloat((parseFloat(cmMatch[1]) / 2.54).toFixed(2));
         if (inches >= 3.0 && inches <= 15.0) return inches;
@@ -152,12 +164,12 @@ function extractAmazonSmartphoneData() {
       if (!text || typeof text !== 'string') return null;
       const cleaned = cleanText(text);
       if (!cleaned) return null;
-      const parenMatch = cleaned.match(/([0-9]+(?:\.[0-9]+)?)\s*cm\s*\(\s*([0-9]+(?:\.[0-9]+)?)\s*(?:inch|inches|["”″″'’′]|\-inch)?\s*\)/i);
+      const parenMatch = cleaned.match(/([0-9]+(?:\.[0-9]+)?)\s*(?:cm|centimetres|centimeters)\s*\(\s*([0-9]+(?:\.[0-9]+)?)\s*(?:inch|inches|\bin\.?(?=\s|$)|["”″″'’′]|\-inch)?\s*\)/i);
       if (parenMatch) {
         const inches = parseFloat(parenMatch[2]);
         if (inches >= 3.0 && inches <= 15.0) return inches;
       }
-      const inchMatch = cleaned.match(/([0-9]+(?:\.[0-9]+)?)\s*(?:inches|inch|["”″″'’′]|\-inch)\s*(?:Super\s*Retina|AMOLED|OLED|LCD|FHD|QHD|HD\+|Screen|Display)?/i);
+      const inchMatch = cleaned.match(/([0-9]+(?:\.[0-9]+)?)\s*(?:inches|inch|\bin\.?(?=\s|$)|["”″″'’′]|\-inch)\s*(?:Super\s*Retina|AMOLED|OLED|LCD|FHD|QHD|HD\+|Screen|Display)?/i);
       if (inchMatch) {
         const inches = parseFloat(inchMatch[1]);
         if (inches >= 3.0 && inches <= 15.0) return inches;
@@ -196,13 +208,37 @@ function extractAmazonSmartphoneData() {
       const cleaned = cleanText(title);
       if (!cleaned) return null;
 
-      let leadSegment = cleaned.split(/[\(\,\|\:]/)[0].trim();
+      // Check if first parenthetical is a Nothing Phone model designator like "(1)", "(2)", "(2a)"
+      let leadSegment;
+      const nothingModelParenMatch = cleaned.match(/^Nothing\s+Phone\s*\(([0-9]+[a-z]?)\)/i);
+      if (nothingModelParenMatch) {
+        leadSegment = `Nothing Phone (${nothingModelParenMatch[1]})`;
+      } else {
+        // Take the lead segment before the first opening parenthesis, bracket, comma, pipe, or colon
+        leadSegment = cleaned.split(/[\(\[\,\|\:]/)[0].trim();
+      }
+
       const brandRegex = new RegExp(`^${brand}\\s+`, 'i');
       leadSegment = leadSegment.replace(brandRegex, '').trim();
+      leadSegment = leadSegment.replace(/\s+-\s+.*$/, '').trim();
+      leadSegment = leadSegment.replace(/\s+with\s+(?:Galaxy\s+)?AI\b.*$/i, '').trim();
       leadSegment = leadSegment.replace(/\b[0-9]+(?:\.[0-9]+)?\s*(?:GB|TB)\b.*$/i, '').trim();
+
+      // Remove common trailing smartphone category/marketing terms at the end of the lead segment
+      // (e.g. "Galaxy S25 Ultra 5G AI Smartphone" -> "Galaxy S25 Ultra")
+      // Do NOT strip "Phone" when it is followed by a model designation (e.g. "Nothing Phone 4a", "ROG Phone 8")
       leadSegment = leadSegment
-        .replace(/\b(?:5G\s+AI\s+Smartphone|AI\s+Smartphone|5G\s+Smartphone|Smartphone|5G\s+Mobile\s+Phone|Mobile\s+Phone|5G\s+Phone|Phone|5G|4G\s+LTE|4G)\b.*$/i, '')
+        .replace(/\b(?:5G\s+AI\s+Smartphone|AI\s+Smartphone|5G\s+Smartphone|Smartphone|5G\s+Mobile\s+Phone|Mobile\s+Phone|5G\s+Phone)\s*$/i, '')
         .trim();
+
+      // Remove trailing generic "Phone" only if at the end of the string and not part of a brand/series
+      // (e.g. "Galaxy M35 5G Phone" -> "Galaxy M35 5G", but keep "Phone 4a" or "ROG Phone 8")
+      if (!/^Phone\b/i.test(leadSegment) && !/\bROG\s+Phone\b/i.test(leadSegment)) {
+        leadSegment = leadSegment.replace(/\bPhone\s*$/i, '').trim();
+      }
+
+      // Remove trailing connectivity indicators at the end of the model string
+      leadSegment = leadSegment.replace(/\b(?:5G|4G\s+LTE|4G)\s*$/i, '').trim();
 
       return leadSegment.length > 0 ? leadSegment : null;
     }
@@ -248,14 +284,28 @@ function extractAmazonSmartphoneData() {
       let ram_gb = ramLabeled ? normalizeRam(ramLabeled[0]) : null;
       let storage_gb = storageLabeled ? normalizeStorage(storageLabeled[0]) : null;
 
-      const pairedMatch = text.match(/([0-9]+(?:\.[0-9]+)?)\s*(?:GB)?\s*[\+\/\-]\s*([0-9]+(?:\.[0-9]+)?)\s*(GB|TB)/i);
+      const pairedMatch = text.match(/\b([0-9]+(?:\.[0-9]+)?)\s*(?:GB)?\s*[\+\/\-\,]\s*([0-9]+(?:\.[0-9]+)?)\s*(GB|TB)\b/i);
       if (pairedMatch) {
         const candidateRam = parseFloat(pairedMatch[1]);
         const isTb = (pairedMatch[3] || '').toUpperCase() === 'TB';
         const candidateStorage = isTb ? parseFloat(pairedMatch[2]) * 1024 : parseFloat(pairedMatch[2]);
-        if (candidateRam >= 1 && candidateRam <= 64 && candidateStorage >= 16 && candidateStorage <= 2048) {
+        if (candidateRam >= 1 && candidateRam <= 64 && candidateStorage >= 16 && candidateStorage <= 2048 && candidateRam < candidateStorage) {
           if (ram_gb === null) ram_gb = candidateRam;
           if (storage_gb === null) storage_gb = candidateStorage;
+        }
+      }
+
+      // Whitespace-separated pair: e.g. "12GB 256GB"
+      if (ram_gb === null || storage_gb === null) {
+        const wsPairedMatch = text.match(/\b([0-9]+(?:\.[0-9]+)?)\s*GB\s+([0-9]+(?:\.[0-9]+)?)\s*(GB|TB)\b/i);
+        if (wsPairedMatch) {
+          const candidateRam = parseFloat(wsPairedMatch[1]);
+          const isTb = (wsPairedMatch[3] || '').toUpperCase() === 'TB';
+          const candidateStorage = isTb ? parseFloat(wsPairedMatch[2]) * 1024 : parseFloat(wsPairedMatch[2]);
+          if (candidateRam >= 1 && candidateRam <= 64 && candidateStorage >= 16 && candidateStorage <= 2048 && candidateRam < candidateStorage) {
+            if (ram_gb === null) ram_gb = candidateRam;
+            if (storage_gb === null) storage_gb = candidateStorage;
+          }
         }
       }
 
@@ -264,16 +314,23 @@ function extractAmazonSmartphoneData() {
         const cRam = parseFloat(parenMatch[1]);
         const isTb = (parenMatch[3] || '').toUpperCase() === 'TB';
         const cStorage = isTb ? parseFloat(parenMatch[2]) * 1024 : parseFloat(parenMatch[2]);
-        if (cRam >= 1 && cRam <= 64 && cStorage >= 16 && cStorage <= 2048) {
+        if (cRam >= 1 && cRam <= 64 && cStorage >= 16 && cStorage <= 2048 && cRam < cStorage) {
           if (ram_gb === null) ram_gb = cRam;
           if (storage_gb === null) storage_gb = cStorage;
         }
       }
 
+      if (ram_gb === null) {
+        const explicitRam = text.match(/\b([0-9]+(?:\.[0-9]+)?)\s*GB\s*RAM\b/i);
+        if (explicitRam) {
+          ram_gb = normalizeRam(explicitRam[0]);
+        }
+      }
+
       if (storage_gb === null) {
         const singleStorageMatch = text.match(/\(\s*([0-9]+(?:\.[0-9]+)?)\s*(GB|TB)\s*\)/i) ||
-                                   text.match(/\b(16|32|64|128|256|512)\s*(GB|TB)\b/i) ||
-                                   text.match(/\b([1-2])\s*(TB)\b/i);
+          text.match(/\b(16|32|64|128|256|512)\s*(GB|TB)\b/i) ||
+          text.match(/\b([1-2])\s*(TB)\b/i);
         if (singleStorageMatch) {
           const num = parseFloat(singleStorageMatch[1]);
           const unit = (singleStorageMatch[2] || '').toUpperCase();
@@ -460,8 +517,11 @@ function extractAmazonSmartphoneData() {
 
     const variantText = cleanText(
       document.querySelector('#variation_size_name .selection')?.textContent ||
-      document.querySelector('#variation_color_name .selection')?.textContent ||
-      document.querySelector('#inline-twister-expanded-dimension-text-size_name')?.textContent
+      document.querySelector('#variation_style_name .selection')?.textContent ||
+      document.querySelector('#variation_configuration_name .selection')?.textContent ||
+      document.querySelector('#inline-twister-expanded-dimension-text-size_name')?.textContent ||
+      document.querySelector('#inline-twister-expanded-dimension-text-style_name')?.textContent ||
+      document.querySelector('#variation_color_name .selection')?.textContent
     );
 
     const url = window.location.href;
@@ -496,43 +556,44 @@ function extractAmazonSmartphoneData() {
     ]);
 
     const rawRam = findSpecValue([
-      /^ram(?:\s+memory)?[:\s]*$/i,
-      /^ram\s*size[:\s]*$/i,
+      /^ram(?:\s+(?:memory|capacity|size))?(?:\s*\([^\)]+\))?[:\s]*$/i,
+      /^ram\s*memory\s*(?:installed\s*)?size[:\s]*$/i,
+      /^ram\s*capacity[:\s]*$/i,
       /^installed\s*ram(?:\s*size)?[:\s]*$/i,
-      /^ram\s*memory\s*installed\s*size[:\s]*$/i,
       /^memory\s*ram\s*installed\s*size[:\s]*$/i,
       /^computer\s*memory\s*size[:\s]*$/i,
       /^system\s*ram[:\s]*$/i,
       /^installed\s*memory[:\s]*$/i,
+      /^internal\s*ram[:\s]*$/i,
+      /^memory\s*\(ram\)[:\s]*$/i,
       /^ram[:\s]*$/i
     ]);
 
     const rawStorage = findSpecValue([
-      /^storage(?:\s+capacity)?[:\s]*$/i,
-      /^memory\s*storage\s*capacity[:\s]*$/i,
-      /^internal\s*storage[:\s]*$/i,
-      /^rom[:\s]*$/i,
-      /^hard\s*disk\s*size[:\s]*$/i,
-      /^flash\s*memory\s*installed\s*size[:\s]*$/i,
-      /^digital\s*storage\s*capacity[:\s]*$/i,
-      /^built-in\s*storage[:\s]*$/i,
-      /^internal\s*memory[:\s]*$/i
+      /^storage(?:\s+capacity)?(?:\s*\([^\)]+\))?[:\s]*$/i,
+      /^memory\s*storage\s*capacity(?:\s*\([^\)]+\))?[:\s]*$/i,
+      /^internal\s*storage(?:\s*\([^\)]+\))?[:\s]*$/i,
+      /^rom(?:\s*\([^\)]+\))?[:\s]*$/i,
+      /^hard\s*disk\s*size(?:\s*\([^\)]+\))?[:\s]*$/i,
+      /^flash\s*memory\s*installed\s*size(?:\s*\([^\)]+\))?[:\s]*$/i,
+      /^digital\s*storage\s*capacity(?:\s*\([^\)]+\))?[:\s]*$/i,
+      /^built-in\s*storage(?:\s*\([^\)]+\))?[:\s]*$/i,
+      /^internal\s*memory(?:\s*\([^\)]+\))?[:\s]*$/i
     ]);
 
     const rawDisplay = findSpecValue([
-      /^screen\s*size[:\s]*$/i,
-      /^display\s*size[:\s]*$/i,
-      /^standing\s*screen\s*display\s*size[:\s]*$/i,
-      /^screen\s*dimensions[:\s]*$/i,
-      /^display[:\s]*$/i,
-      /^screen[:\s]*$/i
+      /^standing\s*screen\s*display\s*size(?:\s*\([^\)]+\))?[:\s]*$/i,
+      /^screen\s*size(?:\s*\([^\)]+\))?[:\s]*$/i,
+      /^display\s*size(?:\s*\([^\)]+\))?[:\s]*$/i,
+      /^screen\s*dimensions(?:\s*\([^\)]+\))?[:\s]*$/i,
+      /^display(?:\s*\([^\)]+\))?[:\s]*$/i,
+      /^screen(?:\s*\([^\)]+\))?[:\s]*$/i
     ]);
 
     const rawBattery = findSpecValue([
-      /^battery\s*capacity[:\s]*$/i,
-      /^battery\s*power\s*rating[:\s]*$/i,
-      /^battery\s*power[:\s]*$/i,
-      /^battery(?:\s*capacity)?\s*\(mah\)[:\s]*$/i,
+      /^battery(?:\s+capacity)?(?:\s*\([^\)]+\))?[:\s]*$/i,
+      /^battery\s*power(?:\s*rating)?(?:\s*\([^\)]+\))?[:\s]*$/i,
+      /^battery\s*size[:\s]*$/i,
       /^battery[:\s]*$/i
     ]);
 
@@ -547,7 +608,9 @@ function extractAmazonSmartphoneData() {
       /^cpu\s*model[:\s]*$/i,
       /^processor\s*type[:\s]*$/i,
       /^chipset[:\s]*$/i,
-      /^processor\s*brand[:\s]*$/i
+      /^processor\s*brand[:\s]*$/i,
+      /^processor\s*model[:\s]*$/i,
+      /^processor\s*name[:\s]*$/i
     ]);
     if (rawProcessor) {
       rawProcessor = extractProcessorFromText(rawProcessor) || cleanText(rawProcessor);
@@ -577,6 +640,12 @@ function extractAmazonSmartphoneData() {
     const warnings = [];
     const errors = [];
 
+    // If a specification-table RAM value was provided but rejected by normalizeRam
+    // (e.g. implausible "0.1 GB", "256 GB"), preserve raw row and emit an explicit warning.
+    if (rawRam && ram_gb === null) {
+      warnings.push(`Implausible or mislabeled RAM value in specs table ("${rawRam}"); rejected as valid RAM.`);
+    }
+
     const variantConfig = extractConfigFromText(variantText);
     const titleConfig = extractConfigFromText(titleText);
 
@@ -597,29 +666,43 @@ function extractAmazonSmartphoneData() {
         storage_gb = variantConfig.storage_gb;
       }
 
-      if (ram_gb === null && titleConfig.ram_gb !== null) {
-        if (storage_gb === null) {
-          ram_gb = titleConfig.ram_gb;
-          storage_gb = titleConfig.storage_gb;
-        } else if (titleConfig.storage_gb === null || titleConfig.storage_gb === storage_gb) {
-          ram_gb = titleConfig.ram_gb;
-        } else {
-          warnings.push(`RAM found in title (${titleConfig.ram_gb} GB) accompanies ${titleConfig.storage_gb} GB storage, but specs table indicates ${storage_gb} GB.`);
-          ram_gb = titleConfig.ram_gb;
-        }
-      } else if (ram_gb === null && titleText) {
-        const titleRamMatch = titleText.match(/([0-9]+)\s*GB\s*RAM/i);
-        if (titleRamMatch) ram_gb = parseFloat(titleRamMatch[1]);
-      }
+      // A title-derived RAM value may be used only when deterministic parsing identifies
+      // a valid configuration and there is no unresolved conflict about the selected variant.
+      const hasVariantConflict = (variantConfig.storage_gb !== null && titleConfig.storage_gb !== null && variantConfig.storage_gb !== titleConfig.storage_gb) ||
+        (variantConfig.ram_gb !== null && titleConfig.ram_gb !== null && variantConfig.ram_gb !== titleConfig.ram_gb);
 
-      if (storage_gb === null && titleConfig.storage_gb !== null) {
-        storage_gb = titleConfig.storage_gb;
-      } else if (storage_gb === null && titleText) {
-        const titleStorageMatch = titleText.match(/([0-9]+(?:\.[0-9]+)?)\s*(?:GB|TB)\s*(?:Storage|ROM|Internal)/i) ||
-                                   titleText.match(/\(\s*([0-9]+(?:\.[0-9]+)?)\s*(?:GB|TB)/i) ||
-                                   titleText.match(/\b(16|32|64|128|256|512)\s*(GB|TB)\b/i) ||
-                                   titleText.match(/\b([1-2])\s*TB\b/i);
-        if (titleStorageMatch) storage_gb = normalizeStorage(titleStorageMatch[0]);
+      if (hasVariantConflict) {
+        warnings.push(`Selected variant dimension (${variantText}) conflicts with title configuration (${titleText}); title config not applied.`);
+      } else {
+        if (ram_gb === null && titleConfig.ram_gb !== null) {
+          if (storage_gb === null) {
+            ram_gb = titleConfig.ram_gb;
+            storage_gb = titleConfig.storage_gb;
+          } else if (titleConfig.storage_gb === null || titleConfig.storage_gb === storage_gb) {
+            ram_gb = titleConfig.ram_gb;
+          } else {
+            warnings.push(`RAM found in title (${titleConfig.ram_gb} GB) accompanies ${titleConfig.storage_gb} GB storage, but specs table indicates ${storage_gb} GB.`);
+            ram_gb = titleConfig.ram_gb;
+          }
+        } else if (ram_gb === null && titleText) {
+          const titleRamMatch = titleText.match(/([0-9]+(?:\.[0-9]+)?)\s*GB\s*RAM/i);
+          if (titleRamMatch) {
+            const parsedTitleRam = normalizeRam(titleRamMatch[0]);
+            if (parsedTitleRam !== null) {
+              ram_gb = parsedTitleRam;
+            }
+          }
+        }
+
+        if (storage_gb === null && titleConfig.storage_gb !== null) {
+          storage_gb = titleConfig.storage_gb;
+        } else if (storage_gb === null && titleText) {
+          const titleStorageMatch = titleText.match(/([0-9]+(?:\.[0-9]+)?)\s*(?:GB|TB)\s*(?:Storage|ROM|Internal)/i) ||
+            titleText.match(/\(\s*([0-9]+(?:\.[0-9]+)?)\s*(?:GB|TB)/i) ||
+            titleText.match(/\b(16|32|64|128|256|512)\s*(GB|TB)\b/i) ||
+            titleText.match(/\b([1-2])\s*TB\b/i);
+          if (titleStorageMatch) storage_gb = normalizeStorage(titleStorageMatch[0]);
+        }
       }
     }
 

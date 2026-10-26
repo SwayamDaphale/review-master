@@ -64,11 +64,19 @@ describe('Normalizers Unit Tests', () => {
     assert.equal(normalizeReviewCount(''), null);
   });
 
-  it('normalizeRam converts GB, TB and MB to GB numbers', () => {
+  it('normalizeRam converts GB, TB and MB to GB numbers within plausible smartphone bounds (1-64 GB)', () => {
     assert.equal(normalizeRam('8 GB'), 8);
     assert.equal(normalizeRam('12GB RAM'), 12);
     assert.equal(normalizeRam('16'), 16);
-    assert.equal(normalizeRam('1 TB'), 1024);
+    assert.equal(normalizeRam('1024 MB'), 1);
+    assert.equal(normalizeRam('2048MB'), 2);
+    // Implausible smartphone RAM values are rejected
+    assert.equal(normalizeRam('0.1 GB'), null);
+    assert.equal(normalizeRam('0 GB'), null);
+    assert.equal(normalizeRam('256 GB'), null);
+    assert.equal(normalizeRam('128 GB'), null);
+    assert.equal(normalizeRam('512 MB'), null);
+    assert.equal(normalizeRam('1 TB'), null);
     assert.equal(normalizeRam('Not mentioned'), null);
   });
 
@@ -115,13 +123,21 @@ describe('Normalizers Unit Tests', () => {
     assert.equal(normalizeAvailability('Random text'), 'unknown');
   });
 
-  it('extractConfigFromText parses paired configurations reliably', () => {
+  it('extractConfigFromText parses paired configurations reliably including whitespace separation', () => {
     assert.deepEqual(extractConfigFromText('8GB + 256GB'), { ram_gb: 8, storage_gb: 256 });
     assert.deepEqual(extractConfigFromText('8GB+256GB'), { ram_gb: 8, storage_gb: 256 });
     assert.deepEqual(extractConfigFromText('12GB/256GB'), { ram_gb: 12, storage_gb: 256 });
     assert.deepEqual(extractConfigFromText('16GB-512GB'), { ram_gb: 16, storage_gb: 512 });
     assert.deepEqual(extractConfigFromText('8 GB RAM, 256 GB storage'), { ram_gb: 8, storage_gb: 256 });
     assert.deepEqual(extractConfigFromText('REDMI Turbo 5 (8GB + 256GB) Asphalt Black'), { ram_gb: 8, storage_gb: 256 });
+    assert.deepEqual(extractConfigFromText('Redmi Turbo 5 (Black, 8GB, 256GB)'), { ram_gb: 8, storage_gb: 256 });
+    assert.deepEqual(extractConfigFromText('Redmi Turbo 5 (8GB, 256GB, Black)'), { ram_gb: 8, storage_gb: 256 });
+    assert.deepEqual(extractConfigFromText('Samsung Galaxy M35 5G (Daybreak Blue, 6GB, 128GB Storage)'), { ram_gb: 6, storage_gb: 128 });
+    // Whitespace separated configurations
+    assert.deepEqual(extractConfigFromText('Nothing Phone 4a (12GB 256GB Black)'), { ram_gb: 12, storage_gb: 256 });
+    assert.deepEqual(extractConfigFromText('12GB 256GB'), { ram_gb: 12, storage_gb: 256 });
+    assert.deepEqual(extractConfigFromText('12 GB 256 GB'), { ram_gb: 12, storage_gb: 256 });
+    assert.deepEqual(extractConfigFromText('16GB 512GB'), { ram_gb: 16, storage_gb: 512 });
     assert.deepEqual(extractConfigFromText('Apple iPhone 15 (128 GB) - Blue'), { ram_gb: null, storage_gb: 128 });
     assert.deepEqual(extractConfigFromText('Just a phone title'), { ram_gb: null, storage_gb: null });
   });
@@ -131,6 +147,10 @@ describe('Normalizers Unit Tests', () => {
     assert.equal(normalizeDisplaySize('16.74cm (6.59")'), 6.59);
     assert.equal(normalizeDisplaySize('16.75cm(6.59)'), 6.59);
     assert.equal(normalizeDisplaySize('17.27 cm (6.8 inch)'), 6.8);
+    assert.equal(normalizeDisplaySize('17.47 Centimetres'), 6.88);
+    assert.equal(normalizeDisplaySize('17.47 Centimeters'), 6.88);
+    assert.equal(normalizeDisplaySize('6.88 in'), 6.88);
+    assert.equal(normalizeDisplaySize('6.9 in.'), 6.9);
     assert.equal(normalizeDisplaySize('6.67 inches'), 6.67);
     assert.equal(normalizeDisplaySize('6.8" FHD+'), 6.8);
     assert.equal(normalizeDisplaySize('15.54 cm'), 6.12);
@@ -156,8 +176,36 @@ describe('Normalizers Unit Tests', () => {
       'Galaxy S25 Ultra'
     );
     assert.equal(
+      extractModelFromTitle('Samsung Galaxy S25 Ultra - Titanium Silver (12GB RAM, 256GB Storage)', 'Samsung'),
+      'Galaxy S25 Ultra'
+    );
+    assert.equal(
+      extractModelFromTitle('Samsung Galaxy S25 Ultra [Titanium Black, 12GB RAM, 256GB Storage]', 'Samsung'),
+      'Galaxy S25 Ultra'
+    );
+    assert.equal(
+      extractModelFromTitle('Samsung Galaxy S25 Ultra with Galaxy AI (Titanium Gray, 12GB, 256GB)', 'Samsung'),
+      'Galaxy S25 Ultra'
+    );
+    assert.equal(
+      extractModelFromTitle('Samsung Galaxy M35 5G Phone (Daybreak Blue, 6GB RAM, 128GB Storage)', 'Samsung'),
+      'Galaxy M35'
+    );
+    assert.equal(
       extractModelFromTitle('REDMI Turbo 5 (8GB + 256GB) Asphalt Black | Dimensity 8500 Ultra', 'Redmi'),
       'Turbo 5'
+    );
+    assert.equal(
+      extractModelFromTitle('Nothing Phone 4a (12GB 256GB Black)', 'Nothing'),
+      'Phone 4a'
+    );
+    assert.equal(
+      extractModelFromTitle('Nothing Phone (2a) 5G (White, 8GB RAM, 128GB Storage)', 'Nothing'),
+      'Phone (2a)'
+    );
+    assert.equal(
+      extractModelFromTitle('ASUS ROG Phone 8 (Phantom Black, 16GB RAM, 512GB Storage)', 'ASUS'),
+      'ROG Phone 8'
     );
     assert.equal(
       extractModelFromTitle('Apple iPhone 15 (128 GB) - Blue', 'Apple'),

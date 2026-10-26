@@ -374,4 +374,333 @@ describe('Expanded Amazon India Layouts & Specification Extraction', () => {
     // Price is ₹1,44,900
     assert.equal(record.normalized.price_amount, 144900);
   });
+
+  it('correctly extracts Redmi Turbo 5 with comma-separated configuration in title (Black, 8GB, 256GB)', () => {
+    // Problem scenario: Title has "(Black, 8GB, 256GB)" where color precedes RAM, and spec table only has Storage
+    const mockDoc = {
+      title: 'REDMI Turbo 5 (Black, 8GB, 256GB) | Dimensity 8500 Ultra : Amazon.in',
+      querySelector: (sel) => {
+        if (sel === '#productTitle') return { textContent: 'REDMI Turbo 5 (Black, 8GB, 256GB) | Dimensity 8500 Ultra' };
+        if (sel === '#bylineInfo') return { textContent: 'Brand: Redmi' };
+        if (sel === '.a-price .a-offscreen') return { textContent: '₹40,999' };
+        if (sel === '#acrPopover') return { getAttribute: () => '4.4 out of 5 stars', textContent: '' };
+        if (sel === '#acrCustomerReviewText') return { textContent: '120 ratings' };
+        if (sel === '#availability span') return { textContent: 'In stock.' };
+        return null;
+      },
+      querySelectorAll: (sel) => {
+        if (sel.includes('#prodDetails')) {
+          return [
+            { label: 'Brand', value: 'Redmi' },
+            { label: 'Model Name', value: 'Turbo 5' },
+            { label: 'Memory Storage Capacity', value: '256 GB' },
+            { label: 'Screen Size', value: '6.59 Inches' },
+            { label: 'Battery Capacity', value: '7540 mAh' },
+            { label: 'Processor', value: 'MediaTek Dimensity 8500 Ultra' },
+            { label: 'Cellular Technology', value: '5G' },
+            { label: 'Operating System', value: 'Xiaomi HyperOS' }
+          ].map(s => ({
+            tagName: 'tr',
+            querySelector: (sub) => {
+              if (sub.includes('th') || sub.includes('first-child')) return { textContent: s.label };
+              if (sub.includes('td') || sub.includes('last-child')) return { textContent: s.value };
+              return null;
+            }
+          }));
+        }
+        return [];
+      }
+    };
+
+    const record = buildExtractionRecord({
+      url: 'https://www.amazon.in/REDMI-Turbo-Dimensity-Asphalt-Black/dp/B0D9876543',
+      doc: mockDoc
+    });
+
+    const valResult = validateSmartphoneRecord(record);
+    assert.equal(valResult.valid, true, `Validation errors: ${JSON.stringify(valResult.errors)}`);
+
+    // Brand and model
+    assert.equal(record.normalized.brand, 'Redmi');
+    assert.equal(record.normalized.model_name, 'Turbo 5');
+
+    // RAM successfully extracted from title comma pair (8GB, 256GB)
+    assert.equal(record.normalized.ram_gb, 8);
+    assert.equal(record.normalized.storage_gb, 256);
+    assert.equal(record.normalized.display_size_inches, 6.59);
+    assert.equal(record.normalized.battery_capacity_mah, 7540);
+    assert.equal(record.normalized.processor, 'MediaTek Dimensity 8500 Ultra');
+    assert.equal(record.validation.status, 'valid');
+    assert.equal(record.validation.identity_status, 'identified');
+  });
+
+  it('correctly extracts RAM from alternative table labels "RAM Capacity" and "Internal RAM"', () => {
+    const mockDoc = {
+      title: 'Redmi Turbo 5 5G (8GB + 256GB)',
+      querySelector: (sel) => {
+        if (sel === '#productTitle') return { textContent: 'Redmi Turbo 5 5G (8GB + 256GB)' };
+        if (sel === '#bylineInfo') return { textContent: 'Brand: Redmi' };
+        if (sel === '.a-price .a-offscreen') return { textContent: '₹40,999' };
+        return null;
+      },
+      querySelectorAll: (sel) => {
+        if (sel.includes('#prodDetails')) {
+          return [
+            { label: 'Brand', value: 'Redmi' },
+            { label: 'Model Name', value: 'Turbo 5' },
+            { label: 'RAM Capacity (GB)', value: '8' },
+            { label: 'Storage Capacity (GB)', value: '256' },
+            { label: 'Screen Size (Inches)', value: '6.59' },
+            { label: 'Battery Capacity (in mAh)', value: '7540' },
+            { label: 'Processor Name', value: 'MediaTek Dimensity 8500 Ultra' }
+          ].map(s => ({
+            tagName: 'tr',
+            querySelector: (sub) => {
+              if (sub.includes('th') || sub.includes('first-child')) return { textContent: s.label };
+              if (sub.includes('td') || sub.includes('last-child')) return { textContent: s.value };
+              return null;
+            }
+          }));
+        }
+        return [];
+      }
+    };
+
+    const record = buildExtractionRecord({
+      url: 'https://www.amazon.in/dp/B0D1122334',
+      doc: mockDoc
+    });
+
+    assert.equal(record.normalized.ram_gb, 8);
+    assert.equal(record.normalized.storage_gb, 256);
+    assert.equal(record.normalized.display_size_inches, 6.59);
+    assert.equal(record.normalized.battery_capacity_mah, 7540);
+    assert.equal(record.normalized.processor, 'MediaTek Dimensity 8500 Ultra');
+  });
+
+  it('correctly extracts Samsung Galaxy S25 Ultra with "Standing screen display size: 17.47 Centimetres" and title suffix "- Titanium Silver"', () => {
+    const mockDoc = {
+      title: 'Samsung Galaxy S25 Ultra - Titanium Silver (12GB RAM, 256GB Storage) with Galaxy AI : Amazon.in',
+      querySelector: (sel) => {
+        if (sel === '#productTitle') return { textContent: 'Samsung Galaxy S25 Ultra - Titanium Silver (12GB RAM, 256GB Storage) with Galaxy AI' };
+        if (sel === '#bylineInfo') return { textContent: 'Brand: Samsung' };
+        if (sel === '.a-price .a-offscreen') return { textContent: '₹1,29,999' };
+        if (sel === '#availability span') return { textContent: 'In stock.' };
+        return null;
+      },
+      querySelectorAll: (sel) => {
+        if (sel.includes('#prodDetails')) {
+          return [
+            { label: 'Brand', value: 'Samsung' },
+            { label: 'Standing screen display size', value: '17.47 Centimetres' },
+            { label: 'RAM Memory Installed Size', value: '12 GB' },
+            { label: 'Digital Storage Capacity', value: '256 GB' },
+            { label: 'Battery Power Rating', value: '5000 Milliamp Hours' },
+            { label: 'Processor Brand', value: 'Qualcomm Snapdragon 8 Elite' },
+            { label: 'Operating System', value: 'Android 15' }
+          ].map(s => ({
+            tagName: 'tr',
+            querySelector: (sub) => {
+              if (sub.includes('th') || sub.includes('first-child')) return { textContent: s.label };
+              if (sub.includes('td') || sub.includes('last-child')) return { textContent: s.value };
+              return null;
+            }
+          }));
+        }
+        return [];
+      }
+    };
+
+    const record = buildExtractionRecord({
+      url: 'https://www.amazon.in/Samsung-Galaxy-Ultra-Storage/dp/B0D5566778',
+      doc: mockDoc
+    });
+
+    const valResult = validateSmartphoneRecord(record);
+    assert.equal(valResult.valid, true, `Validation errors: ${JSON.stringify(valResult.errors)}`);
+
+    // Model name cleanly extracted without "- Titanium Silver" or "with Galaxy AI"
+    assert.equal(record.normalized.brand, 'Samsung');
+    assert.equal(record.normalized.model_name, 'Galaxy S25 Ultra');
+    assert.equal(record.normalized.ram_gb, 12);
+    assert.equal(record.normalized.storage_gb, 256);
+    // Display size converted from 17.47 Centimetres (17.47 / 2.54 = 6.88 inches)
+    assert.equal(record.normalized.display_size_inches, 6.88);
+    assert.equal(record.normalized.battery_capacity_mah, 5000);
+    assert.equal(record.normalized.processor, 'Snapdragon 8 Elite');
+  });
+
+  it('extracts selected variant configuration from style-name selector (#variation_style_name)', () => {
+    const mockDoc = {
+      title: 'OnePlus 12R 5G (Cool Blue, 8GB RAM, 128GB Storage)',
+      querySelector: (sel) => {
+        if (sel === '#productTitle') return { textContent: 'OnePlus 12R 5G' };
+        if (sel === '#bylineInfo') return { textContent: 'Brand: OnePlus' };
+        if (sel === '#variation_style_name .selection') return { textContent: '16GB RAM + 256GB Storage' };
+        if (sel === '.a-price .a-offscreen') return { textContent: '₹45,999' };
+        return null;
+      },
+      querySelectorAll: (sel) => {
+        if (sel.includes('#prodDetails')) {
+          return [
+            { label: 'Brand', value: 'OnePlus' },
+            { label: 'Model Name', value: '12R' },
+            { label: 'RAM', value: '8 GB' },
+            { label: 'Storage', value: '128 GB' }
+          ].map(s => ({
+            tagName: 'tr',
+            querySelector: (sub) => {
+              if (sub.includes('th') || sub.includes('first-child')) return { textContent: s.label };
+              if (sub.includes('td') || sub.includes('last-child')) return { textContent: s.value };
+              return null;
+            }
+          }));
+        }
+        return [];
+      }
+    };
+
+    const record = buildExtractionRecord({
+      url: 'https://www.amazon.in/OnePlus-Cool-128GB-Storage/dp/B0CQPP9999',
+      doc: mockDoc
+    });
+
+    // Selected style variant (16GB RAM + 256GB Storage) takes precedence over table (8GB + 128GB)
+    assert.equal(record.normalized.ram_gb, 16);
+    assert.equal(record.normalized.storage_gb, 256);
+    assert.equal(record.validation.warnings.length > 0, true);
+  });
+
+  it('correctly handles Nothing Phone 4a (ASIN B0GRDH5D6Z) with mislabeled table RAM and whitespace title config', () => {
+    // Problem scenario: Table has "RAM Memory Installed Size: 256 GB" (mislabeled storage in RAM row).
+    // Title has "Nothing Phone 4a (12GB 256GB Black)".
+    // Device casing has "Item Dimensions: 16.2 x 7.6 x 0.9 Centimeters" but NO screen diagonal evidence.
+    const mockDoc = {
+      title: 'Nothing Phone 4a (12GB 256GB Black) : Amazon.in: Electronics',
+      querySelector: (sel) => {
+        if (sel === '#productTitle') return { textContent: 'Nothing Phone 4a (12GB 256GB Black)' };
+        if (sel === '#bylineInfo') return { textContent: 'Brand: Nothing' };
+        if (sel === '.a-price .a-offscreen') return { textContent: '₹43,930.00' };
+        if (sel === '#acrPopover') return { getAttribute: () => '4.3 out of 5 stars', textContent: '' };
+        if (sel === '#acrCustomerReviewText') return { textContent: '(54)' };
+        if (sel === '#availability span') return { textContent: 'In stock' };
+        return null;
+      },
+      querySelectorAll: (sel) => {
+        if (sel.includes('#prodDetails')) {
+          return [
+            { label: 'Brand', value: 'Nothing' },
+            { label: 'Operating System', value: 'Android v16' },
+            { label: 'RAM Memory Installed Size', value: '256 GB' },
+            { label: 'CPU Model', value: 'Snapdragon 7 Series' },
+            { label: 'RAM Memory Installed', value: '256 GB' },
+            { label: 'Memory Storage Capacity', value: '256 GB' },
+            { label: 'Battery Power', value: '5080 Milliamp Hours' },
+            { label: 'Item Dimensions', value: '16.2 x 7.6 x 0.9 Centimeters' },
+            { label: 'Wireless Network Technology', value: 'LTE' },
+            { label: 'ASIN', value: 'B0GRDH5D6Z' }
+          ].map(s => ({
+            tagName: 'tr',
+            querySelector: (sub) => {
+              if (sub.includes('th') || sub.includes('first-child')) return { textContent: s.label };
+              if (sub.includes('td') || sub.includes('last-child')) return { textContent: s.value };
+              return null;
+            }
+          }));
+        }
+        return [];
+      }
+    };
+
+    const record = buildExtractionRecord({
+      url: 'https://www.amazon.in/Nothing-Phone-12GB-256GB-Black/dp/B0GRDH5D6Z',
+      doc: mockDoc
+    });
+
+    const valResult = validateSmartphoneRecord(record);
+    assert.equal(valResult.valid, true, `Validation errors: ${JSON.stringify(valResult.errors)}`);
+
+    // Model name unambiguously extracted without stripping "Phone"
+    assert.equal(record.normalized.brand, 'Nothing');
+    assert.equal(record.normalized.model_name, 'Phone 4a');
+
+    // Mislabeled table RAM (256 GB) rejected, safely resolved to 12 GB from title config
+    assert.equal(record.normalized.ram_gb, 12);
+    assert.equal(record.normalized.storage_gb, 256);
+    assert.equal(record.normalized.battery_capacity_mah, 5080);
+    assert.equal(record.normalized.processor, 'Snapdragon 7 Series');
+
+    // Display size must NOT be guessed from casing dimensions (16.2 x 7.6 x 0.9 cm)
+    assert.equal(record.normalized.display_size_inches, null);
+
+    // Warning emitted for rejected mislabeled table RAM
+    const hasRamWarning = record.validation.warnings.some(w => /Implausible or mislabeled RAM/i.test(w));
+    assert.equal(hasRamWarning, true, 'Expected warning about mislabeled 256 GB RAM in specs table');
+
+    // Warning emitted for missing display size
+    const hasDisplayWarning = record.validation.warnings.some(w => /Display size not clearly identified/i.test(w));
+    assert.equal(hasDisplayWarning, true, 'Expected warning about missing display size');
+  });
+
+  it('correctly handles Apple iPhone 17 Pro Max (ASIN B0FQFW4MVJ) with implausible 0.1 GB RAM', () => {
+    // Problem scenario: Specs table contains "RAM Memory Installed Size: 0.1 GB" and "CPU Speed: 0.1 GHz"
+    const mockDoc = {
+      title: 'Apple iPhone 17 Pro Max 256 GB: 17.42 cm (6.9″) Display with Promotion, A19 Pro Chip; Silver',
+      querySelector: (sel) => {
+        if (sel === '#productTitle') return { textContent: 'Apple iPhone 17 Pro Max 256 GB: 17.42 cm (6.9″) Display with Promotion, A19 Pro Chip; Silver' };
+        if (sel === '#bylineInfo') return { textContent: 'Brand: Apple' };
+        if (sel === '.a-price .a-offscreen') return { textContent: '₹1,44,900.00' };
+        if (sel === '#acrPopover') return { getAttribute: () => '4.7 out of 5 stars', textContent: '' };
+        if (sel === '#acrCustomerReviewText') return { textContent: '(693)' };
+        if (sel === '#availability span') return { textContent: 'In stock' };
+        if (sel === '#variation_size_name .selection') return { textContent: '256 GB' };
+        return null;
+      },
+      querySelectorAll: (sel) => {
+        if (sel.includes('#prodDetails')) {
+          return [
+            { label: 'Brand', value: 'Apple' },
+            { label: 'Operating System', value: 'iOS' },
+            { label: 'RAM Memory Installed Size', value: '0.1 GB' },
+            { label: 'CPU Speed', value: '0.1 GHz' },
+            { label: 'Memory Storage Capacity', value: '256 GB' },
+            { label: 'Item model number', value: 'MFYM4HN/A' },
+            { label: 'Processor', value: 'A19 Pro' },
+            { label: 'ASIN', value: 'B0FQFW4MVJ' }
+          ].map(s => ({
+            tagName: 'tr',
+            querySelector: (sub) => {
+              if (sub.includes('th') || sub.includes('first-child')) return { textContent: s.label };
+              if (sub.includes('td') || sub.includes('last-child')) return { textContent: s.value };
+              return null;
+            }
+          }));
+        }
+        return [];
+      }
+    };
+
+    const record = buildExtractionRecord({
+      url: 'https://www.amazon.in/iPhone-Pro-Max-256-Promotion/dp/B0FQFW4MVJ',
+      doc: mockDoc
+    });
+
+    const valResult = validateSmartphoneRecord(record);
+    assert.equal(valResult.valid, true, `Validation errors: ${JSON.stringify(valResult.errors)}`);
+
+    assert.equal(record.normalized.brand, 'Apple');
+    assert.equal(record.normalized.model_name, 'iPhone 17 Pro Max');
+    assert.equal(record.normalized.model_number, 'MFYM4HN/A');
+    assert.equal(record.normalized.operating_system, 'iOS');
+    assert.equal(record.normalized.storage_gb, 256);
+    assert.equal(record.normalized.display_size_inches, 6.9);
+    assert.equal(record.normalized.processor, 'A19 Pro');
+
+    // Implausible 0.1 GB RAM MUST be rejected and remain null
+    assert.equal(record.normalized.ram_gb, null);
+
+    // Warning emitted for rejected 0.1 GB RAM
+    const hasRamWarning = record.validation.warnings.some(w => /Implausible or mislabeled RAM/i.test(w));
+    assert.equal(hasRamWarning, true, 'Expected warning about implausible 0.1 GB RAM');
+  });
 });

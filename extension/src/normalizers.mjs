@@ -66,35 +66,50 @@ export function normalizeReviewCount(reviewCountText) {
 /**
  * Normalize RAM in GB
  * e.g. "8 GB", "8GB", "12 GB RAM", "128MB" -> 8, 12, etc. (exclusiveMinimum: 0)
+ *
+ * Supported units per schema: GB, MB, TB.
+ * Documented smartphone plausibility range: 1 GB <= RAM <= 64 GB.
+ * Values outside this range (e.g. "0.1 GB", "256 GB") are rejected as implausible.
  */
 export function normalizeRam(ramText) {
   if (!ramText || typeof ramText !== 'string') return null;
   const cleaned = cleanText(ramText);
   if (!cleaned) return null;
+
+  // 1. TB branch (convert to GB: 1 TB = 1024 GB, plausible smartphone range: 1-64 GB)
   const tbMatch = cleaned.match(/([0-9]+(?:\.[0-9]+)?)\s*TB/i);
-  if (tbMatch) return parseFloat(tbMatch[1]) * 1024;
+  if (tbMatch) {
+    const val = parseFloat(tbMatch[1]) * 1024;
+    return val >= 1 && val <= 64 ? val : null;
+  }
+
+  // 2. GB branch (plausible smartphone range: 1-64 GB)
   const gbMatch = cleaned.match(/([0-9]+(?:\.[0-9]+)?)\s*GB/i);
   if (gbMatch) {
     const val = parseFloat(gbMatch[1]);
     return val >= 1 && val <= 64 ? val : null;
   }
+
+  // 3. MB branch (convert to GB: e.g. 1024 MB = 1 GB; plausible range: 1-64 GB)
   const mbMatch = cleaned.match(/([0-9]+(?:\.[0-9]+)?)\s*MB/i);
   if (mbMatch) {
     const val = parseFloat((parseFloat(mbMatch[1]) / 1024).toFixed(3));
-    return val >= 1 ? val : null;
+    return val >= 1 && val <= 64 ? val : null;
   }
-  // bare number
+
+  // 4. Bare number branch (plausible range: 1-64 GB)
   const numMatch = cleaned.match(/^([0-9]+(?:\.[0-9]+)?)$/);
   if (numMatch) {
     const val = parseFloat(numMatch[1]);
     return val >= 1 && val <= 64 ? val : null;
   }
+
   return null;
 }
 
 /**
  * Extract paired RAM and Storage from text strings like "8GB + 256GB", "12GB/256GB",
- * "(8GB RAM, 128GB Storage)", "8 GB RAM, 256 GB storage"
+ * "12GB 256GB", "(8GB RAM, 128GB Storage)", "8 GB RAM, 256 GB storage"
  * Returns { ram_gb: number | null, storage_gb: number | null }
  */
 export function extractConfigFromText(text) {
@@ -106,17 +121,31 @@ export function extractConfigFromText(text) {
   let ram_gb = ramLabeled ? normalizeRam(ramLabeled[0]) : null;
   let storage_gb = storageLabeled ? normalizeStorage(storageLabeled[0]) : null;
 
-  // 2. Unambiguous paired pattern: e.g. "8GB + 256GB", "8GB+256GB", "12GB/256GB", "12GB / 512GB", "12GB-256GB"
-  // or "8 + 256 GB"
-  const pairedMatch = text.match(/([0-9]+(?:\.[0-9]+)?)\s*(?:GB)?\s*[\+\/\-]\s*([0-9]+(?:\.[0-9]+)?)\s*(GB|TB)/i);
+  // 2a. Unambiguous paired pattern with punctuation: e.g. "8GB + 256GB", "8GB+256GB", "12GB/256GB", "12GB / 512GB", "12GB-256GB",
+  // "8GB, 256GB", "(Black, 8GB, 256GB)", "(8GB, 256GB, Black)", "8 + 256 GB"
+  const pairedMatch = text.match(/\b([0-9]+(?:\.[0-9]+)?)\s*(?:GB)?\s*[\+\/\-\,]\s*([0-9]+(?:\.[0-9]+)?)\s*(GB|TB)\b/i);
   if (pairedMatch) {
     const candidateRam = parseFloat(pairedMatch[1]);
     const isTb = (pairedMatch[3] || '').toUpperCase() === 'TB';
     const candidateStorage = isTb ? parseFloat(pairedMatch[2]) * 1024 : parseFloat(pairedMatch[2]);
-    // Validate typical smartphone ranges to avoid mistaking model numbers or screen specs
-    if (candidateRam >= 1 && candidateRam <= 64 && candidateStorage >= 16 && candidateStorage <= 2048) {
+    // Validate typical smartphone ranges: RAM 1-64 GB, Storage 16-2048 GB, RAM strictly less than Storage
+    if (candidateRam >= 1 && candidateRam <= 64 && candidateStorage >= 16 && candidateStorage <= 2048 && candidateRam < candidateStorage) {
       if (ram_gb === null) ram_gb = candidateRam;
       if (storage_gb === null) storage_gb = candidateStorage;
+    }
+  }
+
+  // 2b. Unambiguous paired pattern with whitespace: e.g. "12GB 256GB", "12 GB 256 GB", "(12GB 256GB Black)"
+  if (ram_gb === null || storage_gb === null) {
+    const wsPairedMatch = text.match(/\b([0-9]+(?:\.[0-9]+)?)\s*GB\s+([0-9]+(?:\.[0-9]+)?)\s*(GB|TB)\b/i);
+    if (wsPairedMatch) {
+      const candidateRam = parseFloat(wsPairedMatch[1]);
+      const isTb = (wsPairedMatch[3] || '').toUpperCase() === 'TB';
+      const candidateStorage = isTb ? parseFloat(wsPairedMatch[2]) * 1024 : parseFloat(wsPairedMatch[2]);
+      if (candidateRam >= 1 && candidateRam <= 64 && candidateStorage >= 16 && candidateStorage <= 2048 && candidateRam < candidateStorage) {
+        if (ram_gb === null) ram_gb = candidateRam;
+        if (storage_gb === null) storage_gb = candidateStorage;
+      }
     }
   }
 
@@ -126,17 +155,25 @@ export function extractConfigFromText(text) {
     const cRam = parseFloat(parenMatch[1]);
     const isTb = (parenMatch[3] || '').toUpperCase() === 'TB';
     const cStorage = isTb ? parseFloat(parenMatch[2]) * 1024 : parseFloat(parenMatch[2]);
-    if (cRam >= 1 && cRam <= 64 && cStorage >= 16 && cStorage <= 2048) {
+    if (cRam >= 1 && cRam <= 64 && cStorage >= 16 && cStorage <= 2048 && cRam < cStorage) {
       if (ram_gb === null) ram_gb = cRam;
       if (storage_gb === null) storage_gb = cStorage;
     }
   }
 
-  // 4. Single parenthetical or standalone storage without RAM: e.g. "(128 GB)", "(256GB Storage)", "256 GB", "1 TB"
+  // 4. Standalone explicit RAM candidate if still missing: e.g. "8GB RAM"
+  if (ram_gb === null) {
+    const explicitRam = text.match(/\b([0-9]+(?:\.[0-9]+)?)\s*GB\s*RAM\b/i);
+    if (explicitRam) {
+      ram_gb = normalizeRam(explicitRam[0]);
+    }
+  }
+
+  // 5. Single parenthetical or standalone storage without RAM: e.g. "(128 GB)", "(256GB Storage)", "256 GB", "1 TB"
   if (storage_gb === null) {
     const singleStorageMatch = text.match(/\(\s*([0-9]+(?:\.[0-9]+)?)\s*(GB|TB)\s*\)/i) ||
-                               text.match(/\b(16|32|64|128|256|512)\s*(GB|TB)\b/i) ||
-                               text.match(/\b([1-2])\s*(TB)\b/i);
+      text.match(/\b(16|32|64|128|256|512)\s*(GB|TB)\b/i) ||
+      text.match(/\b([1-2])\s*(TB)\b/i);
     if (singleStorageMatch) {
       const num = parseFloat(singleStorageMatch[1]);
       const unit = (singleStorageMatch[2] || '').toUpperCase();
@@ -166,7 +203,8 @@ export function normalizeStorage(storageText) {
 
 /**
  * Normalize Display Size in inches
- * e.g. '6.67 inches', '6.67" FHD+', '16.94 cm (6.67 inch)', '17.47 cm (6.88")', '17.42 cm (6.9") Display', '16.75cm(6.59)'
+ * e.g. '6.67 inches', '6.67" FHD+', '16.94 cm (6.67 inch)', '17.47 cm (6.88")', '17.42 cm (6.9") Display', '16.75cm(6.59)',
+ * '17.47 Centimetres', '17.47 Centimeters', '6.88 in', '6.9 in.'
  */
 export function normalizeDisplaySize(displayText) {
   if (!displayText || typeof displayText !== 'string') return null;
@@ -174,21 +212,21 @@ export function normalizeDisplaySize(displayText) {
   if (!cleaned) return null;
 
   // 1. Parenthetical inches inside cm spec: e.g. 17.42 cm (6.9"), 17.47 cm (6.88"), 16.75cm(6.59), 17.27 cm (6.8 inch)
-  const parenInchMatch = cleaned.match(/([0-9]+(?:\.[0-9]+)?)\s*cm\s*\(\s*([0-9]+(?:\.[0-9]+)?)\s*(?:inch|inches|["”″″'’′]|\-inch)?\s*\)/i);
+  const parenInchMatch = cleaned.match(/([0-9]+(?:\.[0-9]+)?)\s*(?:cm|centimetres|centimeters)\s*\(\s*([0-9]+(?:\.[0-9]+)?)\s*(?:inch|inches|\bin\.?(?=\s|$)|["”″″'’′]|\-inch)?\s*\)/i);
   if (parenInchMatch) {
     const inches = parseFloat(parenInchMatch[2]);
     if (inches >= 3.0 && inches <= 15.0) return inches;
   }
 
-  // 2. Explicit inches: e.g. 6.8 Inches, 6.67", 6.8 inch, 6.9”
-  const inchMatch = cleaned.match(/([0-9]+(?:\.[0-9]+)?)\s*(?:inches|inch|["”″″'’′]|\-inch)/i);
+  // 2. Explicit inches: e.g. 6.8 Inches, 6.67", 6.8 inch, 6.9”, 6.88 in, 6.9 in.
+  const inchMatch = cleaned.match(/([0-9]+(?:\.[0-9]+)?)\s*(?:inches|inch|\bin\.?(?=\s|$)|["”″″'’′]|\-inch)/i);
   if (inchMatch) {
     const val = parseFloat(inchMatch[1]);
     if (val >= 3.0 && val <= 15.0) return val;
   }
 
-  // 3. Standalone cm: e.g. 15.54 cm -> 15.54 / 2.54 = 6.12
-  const cmMatch = cleaned.match(/([0-9]+(?:\.[0-9]+)?)\s*cm/i);
+  // 3. Standalone cm or centimetres / centimeters: e.g. 15.54 cm -> 15.54 / 2.54 = 6.12, 17.47 Centimetres -> 6.88
+  const cmMatch = cleaned.match(/([0-9]+(?:\.[0-9]+)?)\s*(?:cm|centimetres|centimeters)\b/i);
   if (cmMatch) {
     const inches = parseFloat((parseFloat(cmMatch[1]) / 2.54).toFixed(2));
     if (inches >= 3.0 && inches <= 15.0) return inches;
@@ -213,14 +251,14 @@ export function extractDisplayFromText(text) {
   if (!cleaned) return null;
 
   // Pattern: cm with parenthetical inches: 17.42 cm (6.9") or 16.74cm(6.59) or 17.47 cm (6.88 inch)
-  const parenMatch = cleaned.match(/([0-9]+(?:\.[0-9]+)?)\s*cm\s*\(\s*([0-9]+(?:\.[0-9]+)?)\s*(?:inch|inches|["”″″'’′]|\-inch)?\s*\)/i);
+  const parenMatch = cleaned.match(/([0-9]+(?:\.[0-9]+)?)\s*(?:cm|centimetres|centimeters)\s*\(\s*([0-9]+(?:\.[0-9]+)?)\s*(?:inch|inches|\bin\.?(?=\s|$)|["”″″'’′]|\-inch)?\s*\)/i);
   if (parenMatch) {
     const inches = parseFloat(parenMatch[2]);
     if (inches >= 3.0 && inches <= 15.0) return inches;
   }
 
   // Pattern: inches with display terms: 6.8" AMOLED, 6.9" Display, 6.67 inch FHD+, 6.8 inches
-  const inchMatch = cleaned.match(/([0-9]+(?:\.[0-9]+)?)\s*(?:inches|inch|["”″″'’′]|\-inch)\s*(?:Super\s*Retina|AMOLED|OLED|LCD|FHD|QHD|HD\+|Screen|Display)?/i);
+  const inchMatch = cleaned.match(/([0-9]+(?:\.[0-9]+)?)\s*(?:inches|inch|\bin\.?(?=\s|$)|["”″″'’′]|\-inch)\s*(?:Super\s*Retina|AMOLED|OLED|LCD|FHD|QHD|HD\+|Screen|Display)?/i);
   if (inchMatch) {
     const inches = parseFloat(inchMatch[1]);
     if (inches >= 3.0 && inches <= 15.0) return inches;
@@ -248,6 +286,8 @@ export function extractBatteryFromText(text) {
  * e.g. "Apple iPhone 17 Pro Max 256 GB: 17.42 cm (6.9") Display..." -> "iPhone 17 Pro Max"
  * e.g. "Samsung Galaxy S25 Ultra 5G AI Smartphone (Titanium Black, 12GB RAM, 256GB Storage)" -> "Galaxy S25 Ultra"
  * e.g. "REDMI Turbo 5 (8GB + 256GB) Asphalt Black" -> "Turbo 5"
+ * e.g. "Nothing Phone 4a (12GB 256GB Black)" -> "Phone 4a"
+ * e.g. "ASUS ROG Phone 8 (16GB RAM, 512GB Storage)" -> "ROG Phone 8"
  * Requires verified brand to avoid guessing on ambiguous titles.
  */
 export function extractModelFromTitle(title, brand) {
@@ -255,20 +295,44 @@ export function extractModelFromTitle(title, brand) {
   const cleaned = cleanText(title);
   if (!cleaned) return null;
 
-  // Take the lead segment before the first opening parenthesis, comma, pipe, or colon
-  let leadSegment = cleaned.split(/[\(\,\|\:]/)[0].trim();
+  // Check if first parenthetical is a Nothing Phone model designator like "(1)", "(2)", "(2a)"
+  let leadSegment;
+  const nothingModelParenMatch = cleaned.match(/^Nothing\s+Phone\s*\(([0-9]+[a-z]?)\)/i);
+  if (nothingModelParenMatch) {
+    leadSegment = `Nothing Phone (${nothingModelParenMatch[1]})`;
+  } else {
+    // Take the lead segment before the first opening parenthesis, bracket, comma, pipe, or colon
+    leadSegment = cleaned.split(/[\(\[\,\|\:]/)[0].trim();
+  }
 
   // Strip brand prefix if present
   const brandRegex = new RegExp(`^${brand}\\s+`, 'i');
   leadSegment = leadSegment.replace(brandRegex, '').trim();
 
+  // Strip trailing dash + variant/color details (e.g. "Galaxy S25 Ultra - Titanium Silver" -> "Galaxy S25 Ultra")
+  leadSegment = leadSegment.replace(/\s+-\s+.*$/, '').trim();
+
+  // Strip trailing marketing phrase like "with Galaxy AI" or "with AI"
+  leadSegment = leadSegment.replace(/\s+with\s+(?:Galaxy\s+)?AI\b.*$/i, '').trim();
+
   // Strip trailing storage if appended (e.g. "iPhone 17 Pro Max 256 GB" -> "iPhone 17 Pro Max")
   leadSegment = leadSegment.replace(/\b[0-9]+(?:\.[0-9]+)?\s*(?:GB|TB)\b.*$/i, '').trim();
 
-  // Remove common trailing smartphone category/marketing terms
+  // Remove common trailing smartphone category/marketing terms at the end of the lead segment
+  // (e.g. "Galaxy S25 Ultra 5G AI Smartphone" -> "Galaxy S25 Ultra")
+  // Do NOT strip "Phone" when it is followed by a model designation (e.g. "Nothing Phone 4a", "ROG Phone 8")
   leadSegment = leadSegment
-    .replace(/\b(?:5G\s+AI\s+Smartphone|AI\s+Smartphone|5G\s+Smartphone|Smartphone|5G\s+Mobile\s+Phone|Mobile\s+Phone|5G\s+Phone|Phone|5G|4G\s+LTE|4G)\b.*$/i, '')
+    .replace(/\b(?:5G\s+AI\s+Smartphone|AI\s+Smartphone|5G\s+Smartphone|Smartphone|5G\s+Mobile\s+Phone|Mobile\s+Phone|5G\s+Phone)\s*$/i, '')
     .trim();
+
+  // Remove trailing generic "Phone" only if at the end of the string and not part of a brand/series
+  // (e.g. "Galaxy M35 5G Phone" -> "Galaxy M35 5G", but keep "Phone 4a" or "ROG Phone 8")
+  if (!/^Phone\b/i.test(leadSegment) && !/\bROG\s+Phone\b/i.test(leadSegment)) {
+    leadSegment = leadSegment.replace(/\bPhone\s*$/i, '').trim();
+  }
+
+  // Remove trailing connectivity indicators at the end of the model string
+  leadSegment = leadSegment.replace(/\b(?:5G|4G\s+LTE|4G)\s*$/i, '').trim();
 
   return leadSegment.length > 0 ? leadSegment : null;
 }

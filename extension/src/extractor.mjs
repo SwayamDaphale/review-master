@@ -197,8 +197,11 @@ export function extractRawFields(doc, url) {
 
   const variantText = cleanText(
     doc.querySelector('#variation_size_name .selection')?.textContent ||
-    doc.querySelector('#variation_color_name .selection')?.textContent ||
-    doc.querySelector('#inline-twister-expanded-dimension-text-size_name')?.textContent
+    doc.querySelector('#variation_style_name .selection')?.textContent ||
+    doc.querySelector('#variation_configuration_name .selection')?.textContent ||
+    doc.querySelector('#inline-twister-expanded-dimension-text-size_name')?.textContent ||
+    doc.querySelector('#inline-twister-expanded-dimension-text-style_name')?.textContent ||
+    doc.querySelector('#variation_color_name .selection')?.textContent
   );
 
   return {
@@ -260,40 +263,41 @@ export function buildExtractionRecord({
   ]);
 
   const rawRam = findSpecValue(specs, [
-    /^ram(?:\s+memory)?[:\s]*$/i,
-    /^ram\s*size[:\s]*$/i,
+    /^ram(?:\s+(?:memory|capacity|size))?(?:\s*\([^\)]+\))?[:\s]*$/i,
+    /^ram\s*memory\s*(?:installed\s*)?size[:\s]*$/i,
+    /^ram\s*capacity[:\s]*$/i,
     /^installed\s*ram(?:\s*size)?[:\s]*$/i,
-    /^ram\s*memory\s*installed\s*size[:\s]*$/i,
     /^memory\s*ram\s*installed\s*size[:\s]*$/i,
     /^computer\s*memory\s*size[:\s]*$/i,
     /^system\s*ram[:\s]*$/i,
     /^installed\s*memory[:\s]*$/i,
+    /^internal\s*ram[:\s]*$/i,
+    /^memory\s*\(ram\)[:\s]*$/i,
     /^ram[:\s]*$/i
   ]);
   const rawStorage = findSpecValue(specs, [
-    /^storage(?:\s+capacity)?[:\s]*$/i,
-    /^memory\s*storage\s*capacity[:\s]*$/i,
-    /^internal\s*storage[:\s]*$/i,
-    /^rom[:\s]*$/i,
-    /^hard\s*disk\s*size[:\s]*$/i,
-    /^flash\s*memory\s*installed\s*size[:\s]*$/i,
-    /^digital\s*storage\s*capacity[:\s]*$/i,
-    /^built-in\s*storage[:\s]*$/i,
-    /^internal\s*memory[:\s]*$/i
+    /^storage(?:\s+capacity)?(?:\s*\([^\)]+\))?[:\s]*$/i,
+    /^memory\s*storage\s*capacity(?:\s*\([^\)]+\))?[:\s]*$/i,
+    /^internal\s*storage(?:\s*\([^\)]+\))?[:\s]*$/i,
+    /^rom(?:\s*\([^\)]+\))?[:\s]*$/i,
+    /^hard\s*disk\s*size(?:\s*\([^\)]+\))?[:\s]*$/i,
+    /^flash\s*memory\s*installed\s*size(?:\s*\([^\)]+\))?[:\s]*$/i,
+    /^digital\s*storage\s*capacity(?:\s*\([^\)]+\))?[:\s]*$/i,
+    /^built-in\s*storage(?:\s*\([^\)]+\))?[:\s]*$/i,
+    /^internal\s*memory(?:\s*\([^\)]+\))?[:\s]*$/i
   ]);
   const rawDisplay = findSpecValue(specs, [
-    /^screen\s*size[:\s]*$/i,
-    /^display\s*size[:\s]*$/i,
-    /^standing\s*screen\s*display\s*size[:\s]*$/i,
-    /^screen\s*dimensions[:\s]*$/i,
-    /^display[:\s]*$/i,
-    /^screen[:\s]*$/i
+    /^standing\s*screen\s*display\s*size(?:\s*\([^\)]+\))?[:\s]*$/i,
+    /^screen\s*size(?:\s*\([^\)]+\))?[:\s]*$/i,
+    /^display\s*size(?:\s*\([^\)]+\))?[:\s]*$/i,
+    /^screen\s*dimensions(?:\s*\([^\)]+\))?[:\s]*$/i,
+    /^display(?:\s*\([^\)]+\))?[:\s]*$/i,
+    /^screen(?:\s*\([^\)]+\))?[:\s]*$/i
   ]);
   const rawBattery = findSpecValue(specs, [
-    /^battery\s*capacity[:\s]*$/i,
-    /^battery\s*power\s*rating[:\s]*$/i,
-    /^battery\s*power[:\s]*$/i,
-    /^battery(?:\s*capacity)?\s*\(mah\)[:\s]*$/i,
+    /^battery(?:\s+capacity)?(?:\s*\([^\)]+\))?[:\s]*$/i,
+    /^battery\s*power(?:\s*rating)?(?:\s*\([^\)]+\))?[:\s]*$/i,
+    /^battery\s*size[:\s]*$/i,
     /^battery[:\s]*$/i
   ]);
   const rawOS = findSpecValue(specs, [
@@ -308,7 +312,9 @@ export function buildExtractionRecord({
     /^cpu\s*model[:\s]*$/i,
     /^processor\s*type[:\s]*$/i,
     /^chipset[:\s]*$/i,
-    /^processor\s*brand[:\s]*$/i
+    /^processor\s*brand[:\s]*$/i,
+    /^processor\s*model[:\s]*$/i,
+    /^processor\s*name[:\s]*$/i
   ]);
   if (rawProcessor) {
     rawProcessor = extractProcessorFromText(rawProcessor) || cleanText(rawProcessor);
@@ -339,6 +345,12 @@ export function buildExtractionRecord({
   const warnings = [];
   const errors = [];
 
+  // If a specification-table RAM value was provided but rejected by normalizeRam
+  // (e.g. implausible "0.1 GB", "256 GB"), preserve raw row and emit an explicit warning.
+  if (rawRam && ram_gb === null) {
+    warnings.push(`Implausible or mislabeled RAM value in specs table ("${rawRam}"); rejected as valid RAM.`);
+  }
+
   const variantConfig = extractConfigFromText(variantText);
   const titleConfig = extractConfigFromText(titleText);
 
@@ -363,34 +375,46 @@ export function buildExtractionRecord({
       storage_gb = variantConfig.storage_gb;
     }
 
-    // Fallback to title configuration if RAM or storage is still missing
-    if (ram_gb === null && titleConfig.ram_gb !== null) {
-      if (storage_gb === null) {
-        ram_gb = titleConfig.ram_gb;
-        storage_gb = titleConfig.storage_gb;
-      } else if (titleConfig.storage_gb === null || titleConfig.storage_gb === storage_gb) {
-        ram_gb = titleConfig.ram_gb;
-      } else {
-        warnings.push(`RAM found in title (${titleConfig.ram_gb} GB) accompanies ${titleConfig.storage_gb} GB storage, but specs table indicates ${storage_gb} GB.`);
-        ram_gb = titleConfig.ram_gb;
-      }
-    } else if (ram_gb === null && titleText) {
-      // Additional targeted fallback for explicit RAM mention in title: e.g. "8GB RAM"
-      const titleRamMatch = titleText.match(/([0-9]+)\s*GB\s*RAM/i);
-      if (titleRamMatch) {
-        ram_gb = parseFloat(titleRamMatch[1]);
-      }
-    }
+    // A title-derived RAM value may be used only when deterministic parsing identifies
+    // a valid configuration and there is no unresolved conflict about the selected variant.
+    const hasVariantConflict = (variantConfig.storage_gb !== null && titleConfig.storage_gb !== null && variantConfig.storage_gb !== titleConfig.storage_gb) ||
+                               (variantConfig.ram_gb !== null && titleConfig.ram_gb !== null && variantConfig.ram_gb !== titleConfig.ram_gb);
 
-    if (storage_gb === null && titleConfig.storage_gb !== null) {
-      storage_gb = titleConfig.storage_gb;
-    } else if (storage_gb === null && titleText) {
-      const titleStorageMatch = titleText.match(/([0-9]+(?:\.[0-9]+)?)\s*(?:GB|TB)\s*(?:Storage|ROM|Internal)/i) ||
-                                 titleText.match(/\(\s*([0-9]+(?:\.[0-9]+)?)\s*(?:GB|TB)/i) ||
-                                 titleText.match(/\b(16|32|64|128|256|512)\s*(GB|TB)\b/i) ||
-                                 titleText.match(/\b([1-2])\s*TB\b/i);
-      if (titleStorageMatch) {
-        storage_gb = normalizeStorage(titleStorageMatch[0]);
+    if (hasVariantConflict) {
+      warnings.push(`Selected variant dimension (${variantText}) conflicts with title configuration (${titleText}); title config not applied.`);
+    } else {
+      // Fallback to title configuration if RAM or storage is still missing
+      if (ram_gb === null && titleConfig.ram_gb !== null) {
+        if (storage_gb === null) {
+          ram_gb = titleConfig.ram_gb;
+          storage_gb = titleConfig.storage_gb;
+        } else if (titleConfig.storage_gb === null || titleConfig.storage_gb === storage_gb) {
+          ram_gb = titleConfig.ram_gb;
+        } else {
+          warnings.push(`RAM found in title (${titleConfig.ram_gb} GB) accompanies ${titleConfig.storage_gb} GB storage, but specs table indicates ${storage_gb} GB.`);
+          ram_gb = titleConfig.ram_gb;
+        }
+      } else if (ram_gb === null && titleText) {
+        // Additional targeted fallback for explicit RAM mention in title: e.g. "8GB RAM"
+        const titleRamMatch = titleText.match(/([0-9]+(?:\.[0-9]+)?)\s*GB\s*RAM/i);
+        if (titleRamMatch) {
+          const parsedTitleRam = normalizeRam(titleRamMatch[0]);
+          if (parsedTitleRam !== null) {
+            ram_gb = parsedTitleRam;
+          }
+        }
+      }
+
+      if (storage_gb === null && titleConfig.storage_gb !== null) {
+        storage_gb = titleConfig.storage_gb;
+      } else if (storage_gb === null && titleText) {
+        const titleStorageMatch = titleText.match(/([0-9]+(?:\.[0-9]+)?)\s*(?:GB|TB)\s*(?:Storage|ROM|Internal)/i) ||
+                                   titleText.match(/\(\s*([0-9]+(?:\.[0-9]+)?)\s*(?:GB|TB)/i) ||
+                                   titleText.match(/\b(16|32|64|128|256|512)\s*(GB|TB)\b/i) ||
+                                   titleText.match(/\b([1-2])\s*TB\b/i);
+        if (titleStorageMatch) {
+          storage_gb = normalizeStorage(titleStorageMatch[0]);
+        }
       }
     }
   }

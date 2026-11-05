@@ -6,6 +6,7 @@ let currentRecord = null;
 
 const extractBtn = document.getElementById('extractBtn');
 const downloadBtn = document.getElementById('downloadBtn');
+const openWebBtn = document.getElementById('openWebBtn');
 const statusIndicator = document.getElementById('statusIndicator');
 const messageContainer = document.getElementById('messageContainer');
 const resultsContainer = document.getElementById('resultsContainer');
@@ -63,6 +64,10 @@ extractBtn.addEventListener('click', async () => {
   clearMessage();
   resultsContainer.classList.add('hidden');
   downloadBtn.disabled = true;
+  if (openWebBtn) {
+    openWebBtn.disabled = true;
+    openWebBtn.classList.add('hidden');
+  }
   updateStatus('extracting', 'Extracting...');
 
   try {
@@ -228,6 +233,23 @@ function renderResults(record) {
   }
 
   resultsContainer.classList.remove('hidden');
+  if (openWebBtn) {
+    openWebBtn.disabled = false;
+    openWebBtn.classList.remove('hidden');
+  }
+}
+
+// Open in Review Master Web app handler
+if (openWebBtn) {
+  openWebBtn.addEventListener('click', () => {
+    if (!currentRecord) return;
+    const targetUrl = 'http://localhost:5173/app/import#data=' + encodeURIComponent(JSON.stringify(currentRecord));
+    if (typeof chrome !== 'undefined' && chrome.tabs && typeof chrome.tabs.create === 'function') {
+      chrome.tabs.create({ url: targetUrl });
+    } else if (typeof window !== 'undefined') {
+      window.open(targetUrl, '_blank');
+    }
+  });
 }
 
 // Download JSON handler

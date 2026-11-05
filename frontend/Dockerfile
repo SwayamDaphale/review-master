@@ -4,7 +4,7 @@
 FROM node:22-alpine AS base
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci
+RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
 
 FROM base AS dev
 COPY . .

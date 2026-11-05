@@ -1,15 +1,23 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="en" data-theme="light">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Review Master — Evidence-Driven Product Evaluation Engine</title>
-    <meta name="description" content="Replace inflated 5-star ratings with deterministic mathematical scoring, transparent lab evidence, and review fraud detection." />
-    <!-- Modern Typography -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <meta name="color-scheme" content="light dark" />
+    <meta name="description" content="Review Master scores products from traceable evidence and tells you how sure it is." />
+    <title>Review Master: product scores you can check</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <script>
+      // Apply the saved theme before first paint so the page never flashes the wrong colours.
+      (function () {
+        try {
+          var saved = JSON.parse(localStorage.getItem('rm.theme') || 'null');
+          var dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          var theme = saved === 'dark' || saved === 'light' ? saved : dark ? 'dark' : 'light';
+          document.documentElement.setAttribute('data-theme', theme);
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

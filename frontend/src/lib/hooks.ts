@@ -1,11 +1,16 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+
+export function useDebounced<T>(value: T, delayMs = 200): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(value), delayMs);
+    return () => clearTimeout(id);
+  }, [value, delayMs]);
+  return debounced;
+}
 
 export function usePageTitle(title: string): void {
   useEffect(() => {
-    const prev = document.title;
-    document.title = `${title} — Review Master`;
-    return () => {
-      document.title = prev;
-    };
+    document.title = title ? `${title} | Review Master` : 'Review Master: product scores you can check';
   }, [title]);
 }

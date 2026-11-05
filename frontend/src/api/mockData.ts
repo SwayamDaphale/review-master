@@ -1,355 +1,577 @@
-import type { ProductItem } from '../types/api';
+// Demo fixtures. EVERYTHING here is sample data used until the backend exists.
+// Scores, evidence and explanations are placeholders and are labelled "Sample data" in the UI.
+// Real product details come only from the user's own extension captures (S25 Ultra, iPhone 17 Pro Max).
+import type {
+  Category,
+  CommunityInsights,
+  Confidence,
+  ConfidenceState,
+  Evaluation,
+  EvidenceRef,
+  ExpertAssessmentSummary,
+  Explanation,
+  MarketplaceRating,
+  MatchState,
+  Offer,
+  ParameterResult,
+  PriceHistory,
+  PricePoint,
+  Product,
+  SourceType,
+  SpecItem,
+  TrustTier,
+  Variant,
+  VerificationState,
+} from '../types/api';
 
-export const MOCK_PRODUCTS: ProductItem[] = [
-  {
-    product: {
-      id: 'prod-s25-ultra',
-      name: 'Samsung Galaxy S25 Ultra',
-      brand: 'Samsung',
-      category: 'smartphone',
-      created_at: '2026-02-10T08:00:00Z',
-      hero_image: 'https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?auto=format&fit=crop&w=800&q=80'
-    },
-    variant: {
-      id: 'var-s25-ultra-256',
-      product_id: 'prod-s25-ultra',
-      label: 'Titanium Black · 12GB RAM · 256GB Storage',
-      asin: 'B0DSKMV3ZC',
-      sku: 'SM-S938B',
-      specs: {
-        ram_gb: 12,
-        storage_gb: 256,
-        display_size_inches: 6.88,
-        battery_capacity_mah: 5000,
-        processor: 'Snapdragon 8 Elite',
-        operating_system: 'Android 15',
-        supports_5g: true
-      }
-    },
-    match_state: 'confirmed',
-    price: 129999,
-    currency: 'INR',
-    evaluation: {
-      id: 'eval-s25-01',
-      overall_score: 8.8,
-      category: 'smartphone',
-      model_version: 'smartphones-v1.0',
-      computed_at: '2026-10-25T12:00:00Z',
-      confidence: {
-        state: 'high',
-        score: 0.95,
-        coverage_percent: 96,
-        evidence_count: 14
-      },
-      parameters: [
-        { key: 'display', name: 'Display Quality & Calibrated Accuracy', score: 9.3, weight: 0.25, unit: 'nits / deltaE', raw_value: '2600 nits peak · 0.9 dE', status: 'scored', tier1_evidence_count: 4 },
-        { key: 'performance', name: 'Sustained Compute (Geekbench 6)', score: 9.4, weight: 0.25, unit: 'pts', raw_value: '3120 Single / 9850 Multi', status: 'scored', tier1_evidence_count: 3 },
-        { key: 'battery', name: 'Battery Endurance & Drain Rate', score: 8.5, weight: 0.20, unit: 'hours', raw_value: '17.2h active web browsing', status: 'scored', tier1_evidence_count: 3 },
-        { key: 'camera', name: 'Optics & Low Light Stabilization', score: 8.9, weight: 0.20, unit: 'sensor score', raw_value: '200MP f/1.7 5x Periscope', status: 'scored', tier1_evidence_count: 2 },
-        { key: 'thermal', name: 'Thermal Throttling & Stability Under Load', score: 7.8, weight: 0.10, unit: '% stability', raw_value: '78.4% 3DMark Stress loop', status: 'scored', tier1_evidence_count: 2 }
-      ],
-      grounded_explanation: 'The Galaxy S25 Ultra demonstrates category-leading display luminance (2,600 nits peak with anti-reflective armor) and sustained multicore compute from the Snapdragon 8 Elite. Thermal throttling stabilizes at 78% retention during heavy 3D gaming loops.'
-    },
-    community: {
-      authentic_percentage: 89,
-      suspicious_percentage: 11,
-      total_reviews_analyzed: 1420,
-      sentiment_distribution: { positive: 76, neutral: 14, negative: 10 },
-      top_positive_themes: ['Display legibility under bright Indian sunlight', 'S-Pen latency reduction', 'Consistent day-long battery'],
-      top_criticisms: ['Substantial device weight (232g)', 'Charging capped at 45W'],
-      price_history: [
-        { date: '2026-08-01', price: 134999, marketplace: 'Amazon India' },
-        { date: '2026-09-01', price: 131999, marketplace: 'Amazon India' },
-        { date: '2026-10-01', price: 129999, marketplace: 'Amazon India' },
-        { date: '2026-10-25', price: 129999, marketplace: 'Amazon India' }
-      ],
-      buy_timing_recommendation: 'fair_price',
-      lowest_observed_price: 124999,
-      highest_observed_price: 134999,
-      current_price: 129999
-    },
-    evidence: [
-      { id: 'ev-01', parameter: 'display', tier: 'tier1', source_name: 'DisplayMate Lab Test', citation: 'Lab Report #DM-S25U: 2600 nits peak brightness, 0.9 JNCD color accuracy', value: '2600 nits', measured_at: '2026-02-15T00:00:00Z', reliability: 'verified_lab' },
-      { id: 'ev-02', parameter: 'performance', tier: 'tier1', source_name: 'Geekbench Benchmark Database', citation: 'Run ID #998341: Geekbench 6 64-bit multi-core verification', value: '9850 pts', measured_at: '2026-02-18T00:00:00Z', reliability: 'verified_lab' },
-      { id: 'ev-03', parameter: 'battery', tier: 'tier1', source_name: 'GSMArena Lab Endurance Protocol', citation: 'Active Use Test v2: 17h 12m continuous web & video playback', value: '17.2 hours', measured_at: '2026-02-22T00:00:00Z', reliability: 'verified_lab' }
-    ]
-  },
-  {
-    product: {
-      id: 'prod-nothing-4a',
-      name: 'Nothing Phone 4a',
-      brand: 'Nothing',
-      category: 'smartphone',
-      created_at: '2026-03-01T08:00:00Z',
-      hero_image: 'https://images.unsplash.com/photo-1598327105666-5b89351aff97?auto=format&fit=crop&w=800&q=80'
-    },
-    variant: {
-      id: 'var-nothing-4a-256',
-      product_id: 'prod-nothing-4a',
-      label: 'Black · 12GB RAM · 256GB Storage',
-      asin: 'B0GRDH5D6Z',
-      sku: 'NT-P4A-BLK',
-      specs: {
-        ram_gb: 12,
-        storage_gb: 256,
-        display_size_inches: null,
-        battery_capacity_mah: 5080,
-        processor: 'Snapdragon 7 Series',
-        operating_system: 'Android 16',
-        supports_5g: true
-      }
-    },
-    match_state: 'probable',
-    price: 43930,
-    currency: 'INR',
-    evaluation: {
-      id: 'eval-nothing-01',
-      overall_score: 8.1,
-      category: 'smartphone',
-      model_version: 'smartphones-v1.0',
-      computed_at: '2026-10-25T14:00:00Z',
-      confidence: {
-        state: 'moderate',
-        score: 0.78,
-        coverage_percent: 78,
-        evidence_count: 8
-      },
-      parameters: [
-        { key: 'display', name: 'Display Quality & Calibrated Accuracy', score: null, weight: 0.25, unit: 'inches', raw_value: 'Unspecified in table', status: 'insufficient_evidence', tier1_evidence_count: 0 },
-        { key: 'performance', name: 'Sustained Compute (Geekbench 6)', score: 8.2, weight: 0.25, unit: 'pts', raw_value: '1940 Single / 5800 Multi', status: 'scored', tier1_evidence_count: 2 },
-        { key: 'battery', name: 'Battery Endurance & Drain Rate', score: 8.7, weight: 0.20, unit: 'hours', raw_value: '15.6h web browsing (5080mAh)', status: 'scored', tier1_evidence_count: 2 },
-        { key: 'camera', name: 'Optics & Low Light Stabilization', score: 7.9, weight: 0.20, unit: 'sensor score', raw_value: '50MP OIS primary', status: 'scored', tier1_evidence_count: 1 },
-        { key: 'thermal', name: 'Thermal Throttling & Stability Under Load', score: 8.6, weight: 0.10, unit: '% stability', raw_value: '88% stability in sustained loop', status: 'scored', tier1_evidence_count: 1 }
-      ],
-      grounded_explanation: 'The Nothing Phone 4a offers robust midrange power via the Snapdragon 7 Series and a high-capacity 5080 mAh cell. Note: Display size is marked Insufficient Evidence due to lack of verified screen diagonal in marketplace listing.'
-    },
-    community: {
-      authentic_percentage: 85,
-      suspicious_percentage: 15,
-      total_reviews_analyzed: 54,
-      sentiment_distribution: { positive: 80, neutral: 12, negative: 8 },
-      top_positive_themes: ['Distinctive transparent aesthetic', 'Clean Nothing OS without ads', 'Fast tactile response'],
-      top_criticisms: ['Plastic mid-frame feel', 'No in-box charger'],
-      price_history: [
-        { date: '2026-09-15', price: 45999, marketplace: 'Amazon India' },
-        { date: '2026-10-01', price: 44499, marketplace: 'Amazon India' },
-        { date: '2026-10-25', price: 43930, marketplace: 'Amazon India' }
-      ],
-      buy_timing_recommendation: 'buy_now',
-      lowest_observed_price: 43930,
-      highest_observed_price: 45999,
-      current_price: 43930
-    },
-    evidence: [
-      { id: 'ev-11', parameter: 'performance', tier: 'tier1', source_name: 'AnTuTu V10 Benchmarks', citation: 'Tested on Padget manufacturing batch: 890,400 overall score', value: '890k pts', measured_at: '2026-03-10T00:00:00Z', reliability: 'verified_lab' },
-      { id: 'ev-12', parameter: 'battery', tier: 'tier2', source_name: 'Nothing Official Technical Sheet', citation: 'Rated 5080 mAh battery capacity @ 3.87V', value: '5080 mAh', measured_at: '2026-02-28T00:00:00Z', reliability: 'official_spec' }
-    ]
-  },
-  {
-    product: {
-      id: 'prod-redmi-turbo-5',
-      name: 'Redmi Turbo 5',
-      brand: 'Redmi',
-      category: 'smartphone',
-      created_at: '2026-01-20T08:00:00Z',
-      hero_image: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=800&q=80'
-    },
-    variant: {
-      id: 'var-redmi-turbo5-256',
-      product_id: 'prod-redmi-turbo-5',
-      label: 'Asphalt Black · 8GB RAM · 256GB Storage',
-      asin: 'B0H297XH3K',
-      sku: 'RD-TB5-BLK',
-      specs: {
-        ram_gb: 8,
-        storage_gb: 256,
-        display_size_inches: 6.59,
-        battery_capacity_mah: 7540,
-        processor: 'Dimensity 8500 Ultra',
-        operating_system: 'Android 16',
-        supports_5g: true
-      }
-    },
-    match_state: 'confirmed',
-    price: 40999,
-    currency: 'INR',
-    evaluation: {
-      id: 'eval-redmi-01',
-      overall_score: 8.4,
-      category: 'smartphone',
-      model_version: 'smartphones-v1.0',
-      computed_at: '2026-10-25T11:00:00Z',
-      confidence: {
-        state: 'high',
-        score: 0.92,
-        coverage_percent: 94,
-        evidence_count: 11
-      },
-      parameters: [
-        { key: 'display', name: 'Display Quality & Calibrated Accuracy', score: 8.5, weight: 0.25, unit: 'inches / nits', raw_value: '6.59" 120Hz 1400 nits', status: 'scored', tier1_evidence_count: 2 },
-        { key: 'performance', name: 'Sustained Compute (Geekbench 6)', score: 8.6, weight: 0.25, unit: 'pts', raw_value: '2210 Single / 7100 Multi', status: 'scored', tier1_evidence_count: 3 },
-        { key: 'battery', name: 'Battery Endurance & Drain Rate', score: 9.7, weight: 0.20, unit: 'hours', raw_value: '22.4h continuous video (7540mAh)', status: 'scored', tier1_evidence_count: 3 },
-        { key: 'camera', name: 'Optics & Low Light Stabilization', score: 7.4, weight: 0.20, unit: 'sensor score', raw_value: '50MP Sony Sensor', status: 'scored', tier1_evidence_count: 1 },
-        { key: 'thermal', name: 'Thermal Throttling & Stability Under Load', score: 7.9, weight: 0.10, unit: '% stability', raw_value: '79% stability under load', status: 'scored', tier1_evidence_count: 2 }
-      ],
-      grounded_explanation: 'The Redmi Turbo 5 earns an exceptional 9.7 in Battery Endurance thanks to its class-leading 7,540 mAh silicon-carbon cell, delivering over 22 hours of active playback. Dimensity 8500 Ultra delivers competitive mid-range compute.'
-    },
-    community: {
-      authentic_percentage: 82,
-      suspicious_percentage: 18,
-      total_reviews_analyzed: 887,
-      sentiment_distribution: { positive: 72, neutral: 18, negative: 10 },
-      top_positive_themes: ['Unmatched battery life that lasts 2 full days', '120W HyperCharge speed', '120Hz smooth animations'],
-      top_criticisms: ['Preloaded third-party applications', 'Night camera soft edges'],
-      price_history: [
-        { date: '2026-08-01', price: 42999, marketplace: 'Amazon India' },
-        { date: '2026-09-01', price: 41999, marketplace: 'Amazon India' },
-        { date: '2026-10-25', price: 40999, marketplace: 'Amazon India' }
-      ],
-      buy_timing_recommendation: 'fair_price',
-      lowest_observed_price: 39999,
-      highest_observed_price: 42999,
-      current_price: 40999
-    },
-    evidence: [
-      { id: 'ev-21', parameter: 'battery', tier: 'tier1', source_name: 'BatteryBenchmark Labs', citation: 'Independent discharge test: 22h 15m screen-on time @ 200 nits', value: '22.4 hours', measured_at: '2026-02-05T00:00:00Z', reliability: 'verified_lab' }
-    ]
-  },
-  {
-    product: {
-      id: 'prod-iphone-17-pro-max',
-      name: 'Apple iPhone 17 Pro Max',
-      brand: 'Apple',
-      category: 'smartphone',
-      created_at: '2026-09-20T08:00:00Z',
-      hero_image: 'https://images.unsplash.com/photo-1591337676887-a217a6970a8a?auto=format&fit=crop&w=800&q=80'
-    },
-    variant: {
-      id: 'var-iphone-17-pm-256',
-      product_id: 'prod-iphone-17-pro-max',
-      label: 'Silver · 256GB Storage',
-      asin: 'B0FQFW4MVJ',
-      sku: 'MFYM4HN/A',
-      specs: {
-        ram_gb: null,
-        storage_gb: 256,
-        display_size_inches: 6.9,
-        battery_capacity_mah: null,
-        processor: 'A19 Pro',
-        operating_system: 'iOS',
-        supports_5g: true
-      }
-    },
-    match_state: 'probable',
-    price: 144900,
-    currency: 'INR',
-    evaluation: {
-      id: 'eval-iphone-01',
-      overall_score: 9.1,
-      category: 'smartphone',
-      model_version: 'smartphones-v1.0',
-      computed_at: '2026-10-25T15:00:00Z',
-      confidence: {
-        state: 'high',
-        score: 0.96,
-        coverage_percent: 92,
-        evidence_count: 16
-      },
-      parameters: [
-        { key: 'display', name: 'Display Quality & Calibrated Accuracy', score: 9.6, weight: 0.25, unit: 'nits / Hz', raw_value: '6.9" 120Hz ProMotion 3000 nits', status: 'scored', tier1_evidence_count: 4 },
-        { key: 'performance', name: 'Sustained Compute (Geekbench 6)', score: 9.8, weight: 0.25, unit: 'pts', raw_value: '3850 Single / 11200 Multi', status: 'scored', tier1_evidence_count: 4 },
-        { key: 'battery', name: 'Battery Endurance & Drain Rate', score: 8.9, weight: 0.20, unit: 'hours', raw_value: '19.8h video streaming', status: 'scored', tier1_evidence_count: 3 },
-        { key: 'camera', name: 'Optics & Low Light Stabilization', score: 9.4, weight: 0.20, unit: 'sensor score', raw_value: '48MP Pro Fusion 4K120 ProRes', status: 'scored', tier1_evidence_count: 3 },
-        { key: 'thermal', name: 'Thermal Throttling & Stability Under Load', score: 7.7, weight: 0.10, unit: '% stability', raw_value: 'Vapor chamber 77% stability', status: 'scored', tier1_evidence_count: 2 }
-      ],
-      grounded_explanation: 'Apple A19 Pro leads in single-thread IPC and neural processing. 6.9-inch display features 3,000 nits peak outdoor brightness. Note: RAM is unlisted by manufacturer (raw marketplace 0.1 GB placeholder rejected as implausible).'
-    },
-    community: {
-      authentic_percentage: 91,
-      suspicious_percentage: 9,
-      total_reviews_analyzed: 693,
-      sentiment_distribution: { positive: 84, neutral: 10, negative: 6 },
-      top_positive_themes: ['Best-in-class 4K video recording with Center Stage', 'Impressive 6.9 inch bezel-less screen', 'Battery lasts well into second day'],
-      top_criticisms: ['Substantial pricing', 'Slow wired charging (27W peak)'],
-      price_history: [
-        { date: '2026-09-25', price: 144900, marketplace: 'Amazon India' },
-        { date: '2026-10-10', price: 144900, marketplace: 'Amazon India' },
-        { date: '2026-10-25', price: 144900, marketplace: 'Amazon India' }
-      ],
-      buy_timing_recommendation: 'fair_price',
-      lowest_observed_price: 144900,
-      highest_observed_price: 144900,
-      current_price: 144900
-    },
-    evidence: [
-      { id: 'ev-31', parameter: 'performance', tier: 'tier1', source_name: 'AnandTech Architecture Teardown', citation: 'A19 Pro Die Analysis: 2x Performance + 6x Efficiency cores @ 4.2GHz', value: '11,200 multi', measured_at: '2026-09-28T00:00:00Z', reliability: 'verified_lab' }
-    ]
-  },
-  {
-    product: {
-      id: 'prod-samsung-t9-ssd',
-      name: 'Samsung T9 Portable SSD',
-      brand: 'Samsung',
-      category: 'ssd',
-      created_at: '2025-11-10T08:00:00Z',
-      hero_image: 'https://images.unsplash.com/photo-1597872200969-2b65d56bd16b?auto=format&fit=crop&w=800&q=80'
-    },
-    variant: {
-      id: 'var-samsung-t9-2tb',
-      product_id: 'prod-samsung-t9-ssd',
-      label: '2TB USB 3.2 Gen 2x2',
-      asin: 'B0CHKBX48S',
-      sku: 'MU-PG2T0B',
-      specs: {
-        storage_gb: 2048,
-        interface: 'USB 3.2 Gen 2x2 (20Gbps)',
-        max_read_mb_s: 2000,
-        max_write_mb_s: 2000,
-        weight_grams: 122
-      }
-    },
-    match_state: 'confirmed',
-    price: 18499,
-    currency: 'INR',
-    evaluation: {
-      id: 'eval-t9-01',
-      overall_score: 8.9,
-      category: 'ssd',
-      model_version: 'ssd-v1.0',
-      computed_at: '2026-10-18T10:00:00Z',
-      confidence: {
-        state: 'high',
-        score: 0.94,
-        coverage_percent: 98,
-        evidence_count: 12
-      },
-      parameters: [
-        { key: 'seq_rw', name: 'Sequential Read/Write Speeds (MB/s)', score: 9.5, weight: 0.30, unit: 'MB/s', raw_value: '2015 MB/s Read / 1980 MB/s Write', status: 'scored', tier1_evidence_count: 4 },
-        { key: 'sustained_write', name: 'Sustained Write Speed (Post-SLC cache)', score: 8.6, weight: 0.30, unit: 'MB/s', raw_value: '1020 MB/s steady state', status: 'scored', tier1_evidence_count: 3 },
-        { key: 'thermal_mgmt', name: 'Thermal Management & Dynamic Thermal Guard', score: 8.7, weight: 0.20, unit: 'temp °C', raw_value: 'Max 48°C exterior under 1TB continuous write', status: 'scored', tier1_evidence_count: 3 },
-        { key: 'durability', name: 'Drop Resistance & Rubberized Ingress', score: 8.8, weight: 0.20, unit: 'meters', raw_value: '3-meter drop test verified', status: 'scored', tier1_evidence_count: 2 }
-      ],
-      grounded_explanation: 'Samsung T9 delivers top-tier 20Gbps sustained performance over USB 3.2 Gen 2x2. Dynamic Thermal Guard keeps enclosure temperatures below 49°C even when transferring 1TB file libraries.'
-    },
-    community: {
-      authentic_percentage: 94,
-      suspicious_percentage: 6,
-      total_reviews_analyzed: 320,
-      sentiment_distribution: { positive: 88, neutral: 8, negative: 4 },
-      top_positive_themes: ['Fast transfers for ProRes 4K footage', 'Grippy silicone casing', 'Backwards compatible with Mac and PC'],
-      top_criticisms: ['Needs a dedicated USB 3.2 Gen 2x2 port for full 2000MB/s speed'],
-      price_history: [
-        { date: '2026-08-01', price: 19999, marketplace: 'Amazon India' },
-        { date: '2026-09-01', price: 18999, marketplace: 'Amazon India' },
-        { date: '2026-10-25', price: 18499, marketplace: 'Amazon India' }
-      ],
-      buy_timing_recommendation: 'buy_now',
-      lowest_observed_price: 17999,
-      highest_observed_price: 21999,
-      current_price: 18499
-    },
-    evidence: [
-      { id: 'ev-ssd-01', parameter: 'seq_rw', tier: 'tier1', source_name: 'StorageReview Enterprise Lab', citation: 'CrystalDiskMark v8.0.4: 2018.4 MB/s Read, 1984.1 MB/s Write', value: '2018 MB/s', measured_at: '2026-01-14T00:00:00Z', reliability: 'verified_lab' }
-    ]
+const DAY = 86_400_000;
+const iso = (daysAgo: number, hoursAgo = 0): string =>
+  new Date(Date.now() - daysAgo * DAY - hoursAgo * 3_600_000).toISOString();
+
+const TIER: Record<SourceType, TrustTier> = {
+  independent_test: 1,
+  expert_test: 1,
+  manufacturer: 2,
+  marketplace: 2,
+  other_authorized: 2,
+  community: 3,
+};
+
+let evCounter = 0;
+function ev(
+  source_type: SourceType,
+  label: string,
+  daysAgo: number,
+  verification: VerificationState = 'verified',
+): EvidenceRef {
+  evCounter += 1;
+  return {
+    evidence_id: `ev-${evCounter}`,
+    source_type,
+    trust_tier: TIER[source_type],
+    label,
+    observed_at: iso(daysAgo),
+    verification_state: verification,
+  };
+}
+const MKT = (d: number) => ev('marketplace', 'Amazon India listing (extension capture)', d, 'unverified');
+const MFR = (d: number) => ev('manufacturer', 'Manufacturer specification sheet (sample)', d);
+const LAB = (d: number) => ev('independent_test', 'Independent lab test (sample)', d);
+const EXPT = (d: number) => ev('expert_test', 'Expert test (sample)', d);
+
+interface ParamDef {
+  key: string;
+  name: string;
+  weight: number;
+  critical: boolean;
+}
+
+const PARAMS: Record<Category, ParamDef[]> = {
+  smartphone: [
+    { key: 'performance', name: 'Performance', weight: 0.22, critical: true },
+    { key: 'battery_charging', name: 'Battery and charging', weight: 0.2, critical: true },
+    { key: 'camera', name: 'Camera', weight: 0.2, critical: true },
+    { key: 'display', name: 'Display', weight: 0.14, critical: false },
+    { key: 'software_updates', name: 'Software and updates', weight: 0.1, critical: false },
+    { key: 'build_durability', name: 'Build and durability', weight: 0.08, critical: false },
+    { key: 'connectivity_features', name: 'Connectivity and features', weight: 0.06, critical: false },
+  ],
+  laptop: [
+    { key: 'cpu', name: 'CPU', weight: 0.2, critical: true },
+    { key: 'gpu', name: 'GPU', weight: 0.12, critical: false },
+    { key: 'ram_storage', name: 'RAM and storage', weight: 0.14, critical: true },
+    { key: 'display', name: 'Display', weight: 0.14, critical: false },
+    { key: 'battery', name: 'Battery', weight: 0.16, critical: true },
+    { key: 'thermal_sustained', name: 'Thermals and sustained performance', weight: 0.1, critical: false },
+    { key: 'build_portability', name: 'Build and portability', weight: 0.08, critical: false },
+    { key: 'connectivity_upgradeability', name: 'Connectivity and upgradeability', weight: 0.06, critical: false },
+  ],
+  external_ssd: [
+    { key: 'sequential_rw', name: 'Sequential read and write', weight: 0.22, critical: true },
+    { key: 'sustained_write', name: 'Sustained write', weight: 0.24, critical: true },
+    { key: 'capacity', name: 'Capacity', weight: 0.16, critical: true },
+    { key: 'interface_compat', name: 'Interface and compatibility', weight: 0.1, critical: false },
+    { key: 'durability_thermal', name: 'Durability and thermal', weight: 0.12, critical: false },
+    { key: 'warranty_endurance', name: 'Warranty and endurance', weight: 0.1, critical: false },
+    { key: 'portability_build', name: 'Portability and build', weight: 0.06, critical: false },
+  ],
+};
+
+const MODEL_NAME: Record<Category, string> = {
+  smartphone: 'Smartphone model (sample)',
+  laptop: 'Laptop model (sample)',
+  external_ssd: 'External SSD model (sample)',
+};
+
+interface ScoreSpec {
+  score: number | null;
+  evidence?: EvidenceRef[];
+  note?: string;
+}
+
+/**
+ * Stand-in for the backend's deterministic engine. It exists ONLY in the mock so the demo data is
+ * internally consistent. The real engine runs on the server; the UI never does this.
+ */
+function buildEvaluation(
+  variantId: string,
+  category: Category,
+  specs: Record<string, ScoreSpec>,
+  conf: { state: ConfidenceState; score: number; reasons: string[] },
+  limitations: string[],
+): Evaluation {
+  const defs = PARAMS[category];
+  const parameters: ParameterResult[] = defs.map((d) => {
+    const s = specs[d.key];
+    const score = s?.score ?? null;
+    return {
+      key: d.key,
+      name: d.name,
+      status: score === null ? 'not_scored' : 'scored',
+      score,
+      weight: d.weight,
+      is_critical: d.critical,
+      evidence: s?.evidence ?? [],
+      note: s?.note,
+    };
+  });
+  const totalWeight = defs.reduce((a, d) => a + d.weight, 0);
+  const scored = parameters.filter((p) => p.score !== null);
+  const scoredWeight = scored.reduce((a, p) => a + (p.weight ?? 0), 0);
+  const coverage = totalWeight === 0 ? 0 : scoredWeight / totalWeight;
+  const weightedSum = scored.reduce((a, p) => a + (p.score ?? 0) * (p.weight ?? 0), 0);
+  const overall =
+    conf.state === 'insufficient_evidence' || scoredWeight === 0
+      ? null
+      : Math.round((weightedSum / scoredWeight) * 10) / 10;
+  const confidence: Confidence = {
+    state: conf.state,
+    score: conf.score,
+    coverage: Math.round(coverage * 100) / 100,
+    reasons: conf.reasons,
+  };
+  return {
+    evaluation_id: `eval-${variantId}`,
+    variant_id: variantId,
+    model: { name: MODEL_NAME[category], version: 'sample-0' },
+    overall_score: overall,
+    confidence,
+    parameters,
+    limitations,
+    created_at: iso(1),
+  };
+}
+
+function history(current: number, days: number, seed: number): PriceHistory {
+  let s = seed * 9301 + 49297;
+  const rnd = () => {
+    s = (s * 9301 + 49297) % 233280;
+    return s / 233280;
+  };
+  const points: PricePoint[] = [];
+  for (let i = days - 1; i >= 0; i -= 1) {
+    const wave = Math.sin((i + seed) / 7) * 0.035;
+    const noise = (rnd() - 0.5) * 0.02;
+    const price = i === 0 ? current : Math.round((current * (1 + wave + noise + 0.02)) / 10) * 10;
+    points.push({ observed_at: iso(i), price });
   }
+  const windowOf = (n: number) => {
+    const slice = points.slice(-n).map((p) => p.price);
+    if (slice.length === 0) return null;
+    const sorted = [...slice].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    const median =
+      sorted.length % 2 === 0 ? ((sorted[mid - 1] ?? 0) + (sorted[mid] ?? 0)) / 2 : (sorted[mid] ?? 0);
+    return { min: sorted[0] ?? 0, median: Math.round(median), max: sorted[sorted.length - 1] ?? 0 };
+  };
+  return { points, windows: { '30': windowOf(30), '90': windowOf(90) }, coverage_days: days };
+}
+
+export interface Fixture {
+  product: Product;
+  variant: Variant;
+  specs: SpecItem[];
+  evaluation: Evaluation;
+  explanation: Explanation;
+  community: CommunityInsights;
+  expert: ExpertAssessmentSummary;
+  offers: Offer[];
+  rating: MarketplaceRating | null;
+  history: PriceHistory;
+  price: number | null;
+  match_state: MatchState;
+}
+
+const NONE_COMMUNITY = (n: number): CommunityInsights => ({
+  status: 'not_enough_feedback',
+  sample_size: n,
+  themes: [],
+  review_quality_signals: [],
+  ai_generated: false,
+});
+const NO_EXPERT: ExpertAssessmentSummary = { status: 'none', findings: [] };
+const spec = (key: string, label: string, value: string | null, source: string): SpecItem => ({ key, label, value, source });
+const SRC_AMZ = 'Amazon India listing (extension capture)';
+const SRC_SAMPLE = 'Sample specification';
+let offerCounter = 0;
+const offer = (seller: string, price: number, hoursAgo: number, source: string, stale = false): Offer => {
+  offerCounter += 1;
+  return {
+    offer_id: `offer-${offerCounter}`,
+    seller,
+    price,
+    currency: 'INR',
+    availability: 'in_stock',
+    source,
+    observed_at: iso(0, hoursAgo),
+    stale,
+  };
+};
+
+function mk(
+  product: Product,
+  variant: Variant,
+  specs: SpecItem[],
+  scoreSpecs: Record<string, ScoreSpec>,
+  conf: { state: ConfidenceState; score: number; reasons: string[] },
+  limitations: string[],
+  explanation: Explanation,
+  extras: Partial<Pick<Fixture, 'community' | 'expert' | 'offers' | 'rating' | 'match_state'>> & {
+    price: number | null;
+    historyDays: number;
+    seed: number;
+  },
+): Fixture {
+  const withIdentity: SpecItem[] = [...specs];
+  if (!withIdentity.some((s) => s.key === 'model')) {
+    withIdentity.unshift(spec('model', 'Model', product.model, SRC_SAMPLE));
+  }
+  if (!withIdentity.some((s) => s.key === 'brand')) {
+    withIdentity.unshift(spec('brand', 'Brand', product.manufacturer, SRC_SAMPLE));
+  }
+  return {
+    product,
+    variant,
+    specs: withIdentity,
+    evaluation: buildEvaluation(variant.id, product.category, scoreSpecs, conf, limitations),
+    explanation,
+    community: extras.community ?? NONE_COMMUNITY(0),
+    expert: extras.expert ?? NO_EXPERT,
+    offers: extras.offers ?? [],
+    rating: extras.rating ?? null,
+    history: extras.price === null ? { points: [], windows: { '30': null, '90': null }, coverage_days: 0 } : history(extras.price, extras.historyDays, extras.seed),
+    price: extras.price,
+    match_state: extras.match_state ?? 'confirmed',
+  };
+}
+
+const ai = (text: string, referenced: string[]): Explanation => ({
+  text,
+  ai_generated: true,
+  mode: 'ai',
+  referenced_parameters: referenced,
+});
+
+// ---------------- Smartphones ----------------
+const s25u: Product = { id: 'p-galaxy-s25-ultra', name: 'Samsung Galaxy S25 Ultra', manufacturer: 'Samsung', model: 'Galaxy S25 Ultra', category: 'smartphone', asin: 'B0DSKMV3ZC' };
+const iph: Product = { id: 'p-iphone-17-pro-max', name: 'Apple iPhone 17 Pro Max', manufacturer: 'Apple', model: 'iPhone 17 Pro Max', category: 'smartphone', asin: 'B0FQFJKBVY' };
+const phoneC: Product = { id: 'p-sample-phone-c', name: 'Sample Phone C', manufacturer: 'Sample', model: 'Phone C', category: 'smartphone' };
+const laptopA: Product = { id: 'p-sample-laptop-a', name: 'Sample Laptop A', manufacturer: 'Sample', model: 'Laptop A', category: 'laptop' };
+const laptopB: Product = { id: 'p-sample-laptop-b', name: 'Sample Laptop B', manufacturer: 'Sample', model: 'Laptop B', category: 'laptop' };
+const ssd1: Product = { id: 'p-sample-ssd-1tb', name: 'Sample Portable SSD 1 TB', manufacturer: 'Sample', model: 'Portable SSD 1 TB', category: 'external_ssd' };
+const ssd2: Product = { id: 'p-sample-ssd-2tb', name: 'Sample Portable SSD 2 TB', manufacturer: 'Sample', model: 'Portable SSD 2 TB', category: 'external_ssd' };
+
+const vr = (id: string, p: Product, label: string, configuration: Variant['configuration']): Variant => ({ id, product_id: p.id, label, configuration });
+
+export const FIXTURES: Fixture[] = [
+  mk(
+    s25u,
+    vr('v-s25u-12-256', s25u, '12 GB RAM / 256 GB', { ram_gb: 12, storage_gb: 256 }),
+    [
+      spec('brand', 'Brand', 'Samsung', SRC_AMZ),
+      spec('model', 'Model', 'Galaxy S25 Ultra', SRC_AMZ),
+      spec('ram', 'RAM', '12 GB', SRC_AMZ),
+      spec('storage', 'Storage', '256 GB', SRC_AMZ),
+      spec('display', 'Display size', '6.9 in', SRC_AMZ),
+      spec('battery', 'Battery capacity', '5,000 mAh', SRC_AMZ),
+      spec('processor', 'Processor', 'Snapdragon 8 Elite', SRC_AMZ),
+      spec('os', 'Operating system', 'Android 16', SRC_AMZ),
+      spec('5g', '5G support', 'Yes', SRC_AMZ),
+    ],
+    {
+      performance: { score: 91, evidence: [MKT(2)] },
+      battery_charging: { score: 78, evidence: [MKT(2)] },
+      camera: { score: 88, evidence: [MKT(2)] },
+      display: { score: 90, evidence: [MKT(2)] },
+      software_updates: { score: 86, evidence: [MKT(2)] },
+      build_durability: { score: 80, evidence: [MKT(2)] },
+      connectivity_features: { score: 92, evidence: [MKT(2)] },
+    },
+    { state: 'limited', score: 0.62, reasons: ['No independent lab test is linked to performance, battery or camera yet.', 'Every input comes from the marketplace listing.'] },
+    ['Scores rest on listed specifications, not measured results.'],
+    ai('From the listed specifications, this phone scores well on performance, display and connectivity. The overall score is held back because no lab measurement is attached yet, so battery and camera results come only from the listing. Treat it as a starting point until test evidence is added.', ['performance', 'display', 'connectivity_features', 'battery_charging', 'camera']),
+    { price: 94999, historyDays: 90, seed: 3, community: NONE_COMMUNITY(3), offers: [offer('Amazon India', 94999, 2, 'Amazon India (extension capture)')], rating: { source: 'Amazon India (external)', rating: 4.4, count: 3492 } },
+  ),
+  mk(
+    iph,
+    vr('v-iphone17pm-1tb', iph, '1 TB', { storage_gb: 1024 }),
+    [
+      spec('brand', 'Brand', 'Apple', SRC_AMZ),
+      spec('model', 'Model', 'iPhone 17 Pro Max', SRC_AMZ),
+      spec('ram', 'RAM', null, SRC_AMZ),
+      spec('storage', 'Storage', '1 TB', SRC_AMZ),
+      spec('display', 'Display size', '6.9 in', SRC_AMZ),
+      spec('battery', 'Battery capacity', null, SRC_AMZ),
+      spec('processor', 'Processor', 'Others (needs review)', SRC_AMZ),
+      spec('os', 'Operating system', null, SRC_AMZ),
+      spec('5g', '5G support', 'Yes', SRC_AMZ),
+    ],
+    {
+      performance: { score: 94, evidence: [MKT(1)] },
+      battery_charging: { score: null, note: 'Battery capacity was not captured from the listing.' },
+      camera: { score: 90, evidence: [MKT(1)] },
+      display: { score: 92, evidence: [MKT(1)] },
+      software_updates: { score: 90, evidence: [MKT(1)] },
+      build_durability: { score: 86, evidence: [MKT(1)] },
+      connectivity_features: { score: 88, evidence: [MKT(1)] },
+    },
+    { state: 'limited', score: 0.51, reasons: ['A critical parameter (battery and charging) is not scored.', 'The processor read as "Others" on the listing and needs review.', 'No independent lab test is linked yet.'] },
+    ['The overall score covers only the parameters that have data.'],
+    ai('Performance, camera and display score highly on the listed specifications. Battery and charging is not scored because the listing did not give a battery capacity, so the overall score covers only the parameters that have data. Adding battery evidence would raise confidence.', ['performance', 'camera', 'display', 'battery_charging']),
+    { price: 184900, historyDays: 12, seed: 5, match_state: 'probable', offers: [offer('Amazon India', 184900, 1, 'Amazon India (extension capture)')], rating: { source: 'Amazon India (external)', rating: 4.6, count: 682 } },
+  ),
+  mk(
+    phoneC,
+    vr('v-phone-c-12-256', phoneC, '12 GB RAM / 256 GB', { ram_gb: 12, storage_gb: 256 }),
+    [
+      spec('ram', 'RAM', '12 GB', SRC_SAMPLE),
+      spec('storage', 'Storage', '256 GB', SRC_SAMPLE),
+      spec('display', 'Display size', '6.7 in', SRC_SAMPLE),
+      spec('battery', 'Battery capacity', '5,000 mAh', SRC_SAMPLE),
+      spec('processor', 'Processor', 'Sample chipset', SRC_SAMPLE),
+      spec('5g', '5G support', 'Yes', SRC_SAMPLE),
+    ],
+    {
+      performance: { score: 84, evidence: [LAB(20), MFR(30)] },
+      battery_charging: { score: 82, evidence: [LAB(20)] },
+      camera: { score: 79, evidence: [LAB(18)] },
+      display: { score: 81, evidence: [MFR(30)] },
+      software_updates: { score: 70, evidence: [MFR(30)] },
+      build_durability: { score: 72, evidence: [MFR(30)] },
+      connectivity_features: { score: 75, evidence: [MFR(30)] },
+    },
+    { state: 'high', score: 0.83, reasons: ['Critical parameters are backed by independent lab tests.', 'Evidence is recent and consistent.'] },
+    [],
+    ai('Backed by independent lab tests for performance, battery and camera, this variant scores consistently across the board. Software updates and build score lower because they rest on the manufacturer sheet alone.', ['performance', 'battery_charging', 'camera', 'software_updates', 'build_durability']),
+    {
+      price: 41999,
+      historyDays: 90,
+      seed: 7,
+      community: {
+        status: 'available',
+        sample_size: 14,
+        themes: [
+          { label: 'Battery lasts a full day', polarity: 'positive', count: 9 },
+          { label: 'Camera is good in daylight', polarity: 'positive', count: 7 },
+          { label: 'Gets warm while charging', polarity: 'negative', count: 4 },
+        ],
+        review_quality_signals: [{ signal_type: 'similar_text', description: 'Several reviews use almost identical wording in the same week.', strength: 'medium' }],
+        ai_generated: true,
+      },
+      offers: [offer('Sample Seller A', 41999, 3, 'Sample feed'), offer('Sample Seller B', 42499, 9 * 24, 'Sample feed', true)],
+    },
+  ),
+  mk(
+    phoneC,
+    vr('v-phone-c-8-128', phoneC, '8 GB RAM / 128 GB', { ram_gb: 8, storage_gb: 128 }),
+    [
+      spec('ram', 'RAM', '8 GB', SRC_SAMPLE),
+      spec('storage', 'Storage', '128 GB', SRC_SAMPLE),
+      spec('display', 'Display size', '6.7 in', SRC_SAMPLE),
+      spec('battery', 'Battery capacity', '5,000 mAh', SRC_SAMPLE),
+      spec('processor', 'Processor', 'Sample chipset', SRC_SAMPLE),
+      spec('5g', '5G support', 'Yes', SRC_SAMPLE),
+    ],
+    {
+      performance: { score: null, note: 'No evidence available yet.' },
+      battery_charging: { score: null, note: 'No evidence available yet.' },
+      camera: { score: null, note: 'No evidence available yet.' },
+      display: { score: 70, evidence: [MFR(30)] },
+      software_updates: { score: null, note: 'No evidence available yet.' },
+      build_durability: { score: 68, evidence: [MFR(30)] },
+      connectivity_features: { score: 72, evidence: [MFR(30)] },
+    },
+    { state: 'insufficient_evidence', score: 0.31, reasons: ['Only 28% of the model weight has any evidence.', 'Critical parameters have no evidence.'] },
+    ['The overall score is withheld until more evidence exists.'],
+    { mode: 'template', ai_generated: false, referenced_parameters: ['display', 'build_durability', 'connectivity_features'], text: 'There is not enough evidence to score this variant. Display, build and connectivity have listed specifications, but performance, battery and camera have no evidence yet.' },
+    { price: 24999, historyDays: 45, seed: 9, offers: [offer('Sample Seller A', 24999, 3, 'Sample feed')] },
+  ),
+  // ---------------- Laptops ----------------
+  mk(
+    laptopA,
+    vr('v-laptop-a-16-512', laptopA, '16 GB RAM / 512 GB', { ram_gb: 16, storage_gb: 512 }),
+    [
+      spec('cpu', 'Processor', 'Sample 8-core CPU', SRC_SAMPLE),
+      spec('ram', 'RAM', '16 GB', SRC_SAMPLE),
+      spec('storage', 'Storage', '512 GB SSD', SRC_SAMPLE),
+      spec('display', 'Display', '14 in, 2.2K', SRC_SAMPLE),
+      spec('battery', 'Battery capacity', '70 Wh', SRC_SAMPLE),
+      spec('weight', 'Weight', '1.4 kg', SRC_SAMPLE),
+    ],
+    {
+      cpu: { score: 86, evidence: [LAB(15), MFR(30)] },
+      gpu: { score: 70, evidence: [LAB(15)] },
+      ram_storage: { score: 78, evidence: [MFR(30)] },
+      display: { score: 82, evidence: [LAB(15)] },
+      battery: { score: 84, evidence: [EXPT(10)] },
+      thermal_sustained: { score: 76, evidence: [EXPT(10)] },
+      build_portability: { score: 80, evidence: [MFR(30)] },
+      connectivity_upgradeability: { score: 66, evidence: [MFR(30)] },
+    },
+    { state: 'high', score: 0.8, reasons: ['Most of the weight is backed by independent or expert tests.', 'Evidence is recent and consistent.'] },
+    [],
+    ai('Strong CPU and battery results come from independent and expert tests. Connectivity and upgradeability score lower because they rest on the manufacturer sheet.', ['cpu', 'battery', 'thermal_sustained', 'connectivity_upgradeability']),
+    {
+      price: 72990,
+      historyDays: 90,
+      seed: 11,
+      community: {
+        status: 'available',
+        sample_size: 22,
+        themes: [
+          { label: 'Battery lasts a work day', polarity: 'positive', count: 14 },
+          { label: 'Keyboard is comfortable', polarity: 'positive', count: 9 },
+          { label: 'Fan noise under load', polarity: 'negative', count: 5 },
+        ],
+        review_quality_signals: [],
+        ai_generated: true,
+      },
+      expert: {
+        status: 'published',
+        expert_label: 'Independent tester (sample)',
+        published_at: iso(10),
+        findings: [
+          { parameter: 'Battery', finding: 'Lasted 11.4 hours in a web-browsing loop at 150 nits (sample result).' },
+          { parameter: 'Thermals and sustained performance', finding: 'Kept 88% of peak CPU speed after 20 minutes of load (sample result).' },
+        ],
+      },
+      offers: [offer('Sample Seller A', 72990, 5, 'Sample feed')],
+    },
+  ),
+  mk(
+    laptopB,
+    vr('v-laptop-b-16-512', laptopB, '16 GB RAM / 512 GB', { ram_gb: 16, storage_gb: 512 }),
+    [
+      spec('cpu', 'Processor', 'Sample 6-core CPU', SRC_SAMPLE),
+      spec('ram', 'RAM', '16 GB', SRC_SAMPLE),
+      spec('storage', 'Storage', '512 GB SSD', SRC_SAMPLE),
+      spec('display', 'Display', '15.6 in, Full HD', SRC_SAMPLE),
+      spec('battery', 'Battery capacity', '56 Wh', SRC_SAMPLE),
+      spec('weight', 'Weight', '1.8 kg', SRC_SAMPLE),
+    ],
+    {
+      cpu: { score: 74, evidence: [MFR(30)] },
+      gpu: { score: null, note: 'No graphics evidence yet.' },
+      ram_storage: { score: 72, evidence: [MFR(30)] },
+      display: { score: 68, evidence: [MFR(30)] },
+      battery: { score: 70, evidence: [MFR(30)] },
+      thermal_sustained: { score: null, note: 'No sustained-load test yet.' },
+      build_portability: { score: 75, evidence: [MFR(30)] },
+      connectivity_upgradeability: { score: 80, evidence: [MFR(30)] },
+    },
+    { state: 'limited', score: 0.55, reasons: ['Graphics and sustained performance have no evidence.', 'All scored inputs come from the manufacturer sheet.'] },
+    ['Scores rest on listed specifications, not measured results.'],
+    ai('The scored parameters rest on the manufacturer sheet only. Graphics and sustained performance have no evidence, so this laptop should be read as a partial picture.', ['cpu', 'ram_storage', 'battery', 'gpu', 'thermal_sustained']),
+    { price: 58990, historyDays: 60, seed: 13, offers: [offer('Sample Seller A', 58990, 6, 'Sample feed')] },
+  ),
+  mk(
+    laptopB,
+    vr('v-laptop-b-32-1024', laptopB, '32 GB RAM / 1 TB', { ram_gb: 32, storage_gb: 1024 }),
+    [
+      spec('cpu', 'Processor', 'Sample 6-core CPU', SRC_SAMPLE),
+      spec('ram', 'RAM', '32 GB', SRC_SAMPLE),
+      spec('storage', 'Storage', '1 TB SSD', SRC_SAMPLE),
+      spec('display', 'Display', '15.6 in, Full HD', SRC_SAMPLE),
+      spec('battery', 'Battery capacity', '56 Wh', SRC_SAMPLE),
+      spec('weight', 'Weight', '1.8 kg', SRC_SAMPLE),
+    ],
+    {
+      cpu: { score: 74, evidence: [MFR(30)] },
+      gpu: { score: null, note: 'No graphics evidence yet.' },
+      ram_storage: { score: 90, evidence: [MFR(30)] },
+      display: { score: 68, evidence: [MFR(30)] },
+      battery: { score: 70, evidence: [MFR(30)] },
+      thermal_sustained: { score: null, note: 'No sustained-load test yet.' },
+      build_portability: { score: 75, evidence: [MFR(30)] },
+      connectivity_upgradeability: { score: 80, evidence: [MFR(30)] },
+    },
+    { state: 'limited', score: 0.58, reasons: ['Graphics and sustained performance have no evidence.', 'All scored inputs come from the manufacturer sheet.'] },
+    ['Scores rest on listed specifications, not measured results.'],
+    ai('The larger memory and storage lift the RAM and storage result, while the other parameters match the smaller variant. Missing graphics and sustained-load evidence keep confidence limited.', ['ram_storage', 'cpu', 'gpu', 'thermal_sustained']),
+    { price: 79990, historyDays: 60, seed: 15, offers: [offer('Sample Seller A', 79990, 6, 'Sample feed')] },
+  ),
+  // ---------------- External SSDs ----------------
+  mk(
+    ssd1,
+    vr('v-ssd-1tb', ssd1, '1 TB', { capacity_gb: 1000 }),
+    [
+      spec('capacity', 'Capacity', '1 TB', SRC_SAMPLE),
+      spec('interface', 'Interface', 'USB 3.2 Gen 2', SRC_SAMPLE),
+      spec('read', 'Rated read speed', '1,050 MB/s', 'Manufacturer claim (sample)'),
+      spec('write', 'Rated write speed', '1,000 MB/s', 'Manufacturer claim (sample)'),
+      spec('weight', 'Weight', '58 g', SRC_SAMPLE),
+    ],
+    {
+      sequential_rw: { score: 82, evidence: [MFR(30)] },
+      sustained_write: { score: 60, evidence: [MFR(30)], note: 'Manufacturer claim only.' },
+      capacity: { score: 70, evidence: [MFR(30)] },
+      interface_compat: { score: 85, evidence: [MFR(30)] },
+      durability_thermal: { score: 74, evidence: [MFR(30)] },
+      warranty_endurance: { score: 66, evidence: [MFR(30)] },
+      portability_build: { score: 88, evidence: [MFR(30)] },
+    },
+    { state: 'limited', score: 0.6, reasons: ['Sustained write is a manufacturer claim and has not been measured.', 'No independent test is linked.'] },
+    ['Rated speeds are claims, not measured results.'],
+    ai('Rated speeds are strong, but they are manufacturer claims. Sustained write, the figure that matters for large transfers, has not been measured, so confidence stays limited.', ['sequential_rw', 'sustained_write']),
+    { price: 7499, historyDays: 90, seed: 17, offers: [offer('Sample Seller A', 7499, 4, 'Sample feed')] },
+  ),
+  mk(
+    ssd2,
+    vr('v-ssd-2tb', ssd2, '2 TB', { capacity_gb: 2000 }),
+    [
+      spec('capacity', 'Capacity', '2 TB', SRC_SAMPLE),
+      spec('interface', 'Interface', 'USB 3.2 Gen 2x2', SRC_SAMPLE),
+      spec('read', 'Measured read speed', '1,980 MB/s', 'Independent lab test (sample)'),
+      spec('write', 'Measured write speed', '1,850 MB/s', 'Independent lab test (sample)'),
+      spec('weight', 'Weight', '62 g', SRC_SAMPLE),
+    ],
+    {
+      sequential_rw: { score: 88, evidence: [LAB(14)] },
+      sustained_write: { score: 84, evidence: [LAB(14)] },
+      capacity: { score: 85, evidence: [MFR(30)] },
+      interface_compat: { score: 90, evidence: [MFR(30)] },
+      durability_thermal: { score: 78, evidence: [LAB(14)] },
+      warranty_endurance: { score: 72, evidence: [MFR(30)] },
+      portability_build: { score: 82, evidence: [MFR(30)] },
+    },
+    { state: 'high', score: 0.78, reasons: ['Speed and thermal results are backed by an independent lab test.', 'Evidence is recent and consistent.'] },
+    [],
+    ai('Measured speeds hold up well, including sustained write after the cache fills. Warranty and build score lower and rest on the manufacturer sheet.', ['sequential_rw', 'sustained_write', 'durability_thermal', 'warranty_endurance']),
+    {
+      price: 12999,
+      historyDays: 90,
+      seed: 19,
+      community: {
+        status: 'available',
+        sample_size: 11,
+        themes: [
+          { label: 'Fast on large file copies', polarity: 'positive', count: 8 },
+          { label: 'Gets warm during long transfers', polarity: 'mixed', count: 3 },
+        ],
+        review_quality_signals: [],
+        ai_generated: true,
+      },
+      offers: [offer('Sample Seller A', 12999, 2, 'Sample feed')],
+    },
+  ),
 ];

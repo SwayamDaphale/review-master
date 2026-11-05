@@ -1,0 +1,72 @@
+/* Design tokens. Light is the default; dark applies with data-theme="dark" (set before first paint). */
+:root,
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-2: #f0f2f5;
+  --ink: #12161c;
+  --muted: #5a6572;
+  --line: #e2e6eb;
+  --line-strong: #c9d0d8;
+
+  --accent: #0e7c86;
+  --accent-hover: #0b666e;
+  --accent-ink: #ffffff;
+  --accent-soft: #e3f3f4;
+
+  --high: #1b7f4b;
+  --high-soft: #e3f4ea;
+  --limited: #8f5f00;
+  --limited-soft: #fff1cf;
+  --none: #566170;
+  --none-soft: #edf0f3;
+  --danger: #b42318;
+  --danger-soft: #fde8e6;
+
+  --t1: #0e7c86;
+  --t2: #6fb2b9;
+  --t3: #bfd8db;
+  --hatch: #aab3bd;
+
+  --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.04), 0 18px 40px -22px rgba(16, 24, 40, 0.28);
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #0e1216;
+  --surface: #151a20;
+  --surface-2: #1b2128;
+  --ink: #e7ebf0;
+  --muted: #98a4b1;
+  --line: #242c35;
+  --line-strong: #364049;
+
+  --accent: #4cc3cc;
+  --accent-hover: #6fd3da;
+  --accent-ink: #06282b;
+  --accent-soft: #12303a;
+
+  --high: #4cc38a;
+  --high-soft: #11301f;
+  --limited: #e0a93b;
+  --limited-soft: #35290c;
+  --none: #9aa6b3;
+  --none-soft: #1d242c;
+  --danger: #ff8a7e;
+  --danger-soft: #3a1714;
+
+  --t1: #4cc3cc;
+  --t2: #2c8790;
+  --t3: #1f5359;
+  --hatch: #4a5561;
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 18px 40px -22px rgba(0, 0, 0, 0.7);
+}
+
+:root {
+  --font: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --maxw: 1120px;
+}

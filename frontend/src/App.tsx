@@ -1,73 +1,66 @@
-import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Navbar, Footer } from './components/layout';
-import Home from './routes/Home';
-import Catalog from './routes/Catalog';
-import ProductDetail from './routes/ProductDetail';
-import Compare from './routes/Compare';
-import Saved from './routes/Saved';
-import AdminLayout from './routes/admin/AdminLayout';
-import AdminOverview from './routes/admin/AdminOverview';
-import AdminCatalog from './routes/admin/AdminCatalog';
-import AdminModels from './routes/admin/AdminModels';
-import AdminModeration from './routes/admin/AdminModeration';
-import AdminAudit from './routes/admin/AdminAudit';
+import { Navigate, Route, Routes } from 'react-router-dom';
+import { AdminLayout, AppLayout, PublicLayout } from './layouts/Layouts';
+import { RequireAdmin, RequireAuth } from './auth/guards';
+import Landing from './pages/landing/Landing';
+import AuthPage from './pages/public/AuthPage';
+import ExtensionPage from './pages/public/ExtensionPage';
+import NotFound from './pages/public/NotFound';
+import Explore from './pages/app/Explore';
+import SearchPage from './pages/app/SearchPage';
+import ProductPage from './pages/app/ProductPage';
+import ComparePage from './pages/app/ComparePage';
+import SavedPage from './pages/app/SavedPage';
+import ImportPage from './pages/app/ImportPage';
+import AccountPage from './pages/app/AccountPage';
+import AdminLogin from './pages/admin/AdminLogin';
+import AdminOverview from './pages/admin/AdminOverview';
+import AdminCatalog from './pages/admin/AdminCatalog';
+import AdminModels from './pages/admin/AdminModels';
+import AdminModeration from './pages/admin/AdminModeration';
+import AdminUsers from './pages/admin/AdminUsers';
+import AdminSettings from './pages/admin/AdminSettings';
+import AdminAudit from './pages/admin/AdminAudit';
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 1000 * 60 * 5,
-      refetchOnWindowFocus: false,
-      retry: 1
-    }
-  }
-});
-
-function NotFound() {
+export default function App() {
   return (
-    <div className="empty-state">
-      <h1>404 — Page Not Found</h1>
-      <p className="muted">The page you requested does not exist or has been relocated.</p>
-      <Link to="/" className="btn btn-primary mt-2">
-        Return to Home
-      </Link>
-    </div>
+    <Routes>
+      <Route element={<PublicLayout />}>
+        <Route index element={<Landing />} />
+        <Route path="extension" element={<ExtensionPage />} />
+      </Route>
+
+      <Route path="login" element={<AuthPage mode="signin" />} />
+      <Route path="signup" element={<AuthPage mode="signup" />} />
+
+      <Route path="app" element={<AppLayout />}>
+        <Route index element={<Explore />} />
+        <Route path="search" element={<SearchPage />} />
+        <Route path="products/:productId" element={<ProductPage />} />
+        <Route path="compare" element={<ComparePage />} />
+        <Route path="import" element={<ImportPage />} />
+        <Route element={<RequireAuth />}>
+          <Route path="saved" element={<SavedPage />} />
+          <Route path="account" element={<AccountPage />} />
+        </Route>
+      </Route>
+
+      <Route path="admin/login" element={<AdminLogin />} />
+      <Route path="admin" element={<RequireAdmin />}>
+        <Route element={<AdminLayout />}>
+          <Route index element={<AdminOverview />} />
+          <Route path="catalog" element={<AdminCatalog />} />
+          <Route path="models" element={<AdminModels />} />
+          <Route path="moderation" element={<AdminModeration />} />
+          <Route path="users" element={<AdminUsers />} />
+          <Route path="settings" element={<AdminSettings />} />
+          <Route path="audit" element={<AdminAudit />} />
+        </Route>
+      </Route>
+
+      <Route path="home" element={<Navigate to="/" replace />} />
+      <Route element={<PublicLayout />}>
+        <Route path="*" element={<NotFound />} />
+      </Route>
+    </Routes>
   );
 }
-
-export function App() {
-  return (
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <div className="app-shell">
-          <Navbar />
-          <main className="container main-content">
-            <Routes>
-              {/* Consumer Routes */}
-              <Route path="/" element={<Home />} />
-              <Route path="/catalog" element={<Catalog />} />
-              <Route path="/product/:id" element={<ProductDetail />} />
-              <Route path="/compare" element={<Compare />} />
-              <Route path="/saved" element={<Saved />} />
-
-              {/* Admin Console Sub-Routes */}
-              <Route path="/admin" element={<AdminLayout />}>
-                <Route index element={<AdminOverview />} />
-                <Route path="catalog" element={<AdminCatalog />} />
-                <Route path="models" element={<AdminModels />} />
-                <Route path="moderation" element={<AdminModeration />} />
-                <Route path="audit" element={<AdminAudit />} />
-              </Route>
-
-              {/* 404 Fallback */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </main>
-          <Footer />
-        </div>
-      </BrowserRouter>
-    </QueryClientProvider>
-  );
-}
-
-export default App;

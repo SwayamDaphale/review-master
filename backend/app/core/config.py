@@ -7,7 +7,7 @@ with deliberate path resolution, startup validation, and secret masking.
 import re
 from pathlib import Path
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Deliberately resolve the repository root and .env path
@@ -78,6 +78,21 @@ class Settings(BaseSettings):
         if isinstance(v, str):
             return [i.strip() for i in v.split(",") if i.strip()]
         return v
+
+    @model_validator(mode="after")
+    def validate_production_secrets(self) -> "Settings":
+        """Enforce strong credentials in production environment."""
+        if self.APP_ENV == "production":
+            insecure_defaults = {"change-me-dev-only", "", None}
+            if self.JWT_SECRET in insecure_defaults:
+                raise ValueError(
+                    "JWT_SECRET must be configured with a secure random secret in production."
+                )
+            if self.API_KEY_PEPPER in insecure_defaults:
+                raise ValueError(
+                    "API_KEY_PEPPER must be configured with a secure random secret in production."
+                )
+        return self
 
     def safe_database_url(self) -> str:
         """Return DATABASE_URL with user password redacted."""

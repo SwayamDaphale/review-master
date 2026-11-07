@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1.7
 # Stages: base -> dev (compose/CI) | prod (deployment image)
 
 FROM python:3.12-slim AS base

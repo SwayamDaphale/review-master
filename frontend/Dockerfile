@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1.7
 # Stages: base -> dev (compose) | build -> prod (static files behind nginx)
 
 FROM node:22-alpine AS base

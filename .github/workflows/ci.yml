@@ -116,8 +116,17 @@ jobs:
       - name: Determinism gate (golden evaluation fixtures)
         # Fixed inputs must give byte-identical scores. A changed score without
         # a new evaluation-model version fails the build.
+        # Progressive gate: activates when golden evaluation fixtures are introduced in Phase B3.
         if: steps.check_backend.outputs.status == 'implemented'
-        run: pytest -q -m golden
+        run: |
+          pytest -q -m golden || {
+            status=$?
+            if [ "$status" -eq 5 ]; then
+              echo "::notice title=Golden Gate::No golden fixtures registered yet (scheduled for Phase B3). Skipping gate."
+              exit 0
+            fi
+            exit "$status"
+          }
 
       - name: OpenAPI contract validity
         if: steps.check_backend.outputs.status == 'implemented'

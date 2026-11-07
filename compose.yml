@@ -39,10 +39,10 @@ x-backend-env: &backend-env
   S3_ACCESS_KEY: ${S3_ACCESS_KEY:-devaccess}
   S3_SECRET_KEY: ${S3_SECRET_KEY:-devsecret}
 
-  # --- identity & security (no defaults on purpose: set them in .env) ---
+  # --- identity & security (safe dev defaults; strong values required in prod) ---
   AUTH_PROVIDER: ${AUTH_PROVIDER:-builtin}            # builtin | keycloak
-  JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (openssl rand -hex 32)}
-  API_KEY_PEPPER: ${API_KEY_PEPPER:?Set API_KEY_PEPPER in .env (openssl rand -hex 32)}
+  JWT_SECRET: ${JWT_SECRET:-change-me-dev-only}
+  API_KEY_PEPPER: ${API_KEY_PEPPER:-change-me-dev-only}
   OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:-}
 
   # --- email ---
@@ -80,7 +80,7 @@ services:
   # PostgreSQL — source of truth (catalog, evaluations, evidence, auth, audit)
   # ==========================================
   postgres:
-    image: postgres:17
+    image: postgres:17.4-alpine
     container_name: rm-postgres
     restart: unless-stopped
     environment:
@@ -102,12 +102,12 @@ services:
   # Redis — cache, Celery broker/result, rate limits, idempotency, OTP
   # ==========================================
   redis:
-    image: redis:7-alpine
+    image: redis:7.4-alpine
     container_name: rm-redis
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6380}:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -123,7 +123,7 @@ services:
   # Verify the flags against the SeaweedFS version you pin.
   # ==========================================
   objectstore:
-    image: chrislusf/seaweedfs:latest
+    image: chrislusf/seaweedfs@sha256:c2658820e763294a9e9de7b36c81e59b879e3459148351aee4e31a126ca64860
     container_name: rm-objectstore
     restart: unless-stopped
     command: server -dir=/data -s3 -s3.port=8333
@@ -136,7 +136,7 @@ services:
   # Mailpit — catches sign-up verification and price-alert emails in dev
   # ==========================================
   mailpit:
-    image: axllent/mailpit:latest
+    image: axllent/mailpit:v1.33
     container_name: rm-mailpit
     restart: unless-stopped
     ports:
@@ -153,6 +153,8 @@ services:
     restart: "no"
     command: ["alembic", "upgrade", "head"]
     environment: *backend-env
+    volumes:
+      - ./backend:/app
     depends_on:
       postgres:
         condition: service_healthy
@@ -193,11 +195,13 @@ services:
 
   # ==========================================
   # Celery worker — ingestion, review analysis, price refresh, alerts, recalculation
+  # Background processing profile: enabled in Phase B4 when Celery tasks are implemented.
   # ==========================================
   worker:
     build: *backend-build
     image: review-master-backend:dev
     container_name: rm-worker
+    profiles: ["celery"]
     restart: unless-stopped
     command: ["celery", "-A", "app.worker.celery_app", "worker", "--loglevel=info"]
     environment: *backend-env
@@ -213,11 +217,13 @@ services:
 
   # ==========================================
   # Celery beat — scheduled monitoring (price refresh, stale-data checks, summaries)
+  # Background processing profile: enabled in Phase B4 when Celery tasks are implemented.
   # ==========================================
   beat:
     build: *backend-build
     image: review-master-backend:dev
     container_name: rm-beat
+    profiles: ["celery"]
     restart: unless-stopped
     command: ["celery", "-A", "app.worker.celery_app", "beat", "--loglevel=info", "--schedule", "/tmp/celerybeat-schedule"]
     environment: *backend-env
@@ -249,7 +255,7 @@ services:
       - /app/node_modules
     depends_on:
       backend:
-        condition: service_healthy
+        condition: service_started
 
   # =====================================================================
   # OPTIONAL SERVICES (enabled with --profile <name>)
@@ -257,7 +263,7 @@ services:
 
   # ---------- profile: rag ----------
   qdrant:
-    image: qdrant/qdrant:latest
+    image: qdrant/qdrant:v1.13.2
     container_name: rm-qdrant
     profiles: ["rag"]
     restart: unless-stopped
@@ -269,7 +275,7 @@ services:
 
   # ---------- profile: local-llm ----------
   ollama:
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.5.12
     container_name: rm-ollama
     profiles: ["local-llm"]
     restart: unless-stopped
@@ -284,7 +290,7 @@ services:
       - ollama-data:/root/.ollama
 
   ollama-init:
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.5.12
     container_name: rm-ollama-init
     profiles: ["local-llm"]
     restart: "no"
@@ -303,7 +309,7 @@ services:
   #   LLM_BASE_URL=http://litellm:4000/v1  LLM_API_KEY=<gateway key>
   #   LLM_MODEL_FAST=rm-fast  LLM_MODEL_STRONG=rm-strong  EMBEDDING_MODEL=rm-embed
   litellm:
-    image: ghcr.io/berriai/litellm:main-stable
+    image: ghcr.io/berriai/litellm:v1.61.12
     container_name: rm-litellm
     profiles: ["llm-gateway"]
     restart: unless-stopped
@@ -324,7 +330,7 @@ services:
 
   # ---------- profile: enterprise-auth ----------
   keycloak:
-    image: quay.io/keycloak/keycloak:latest
+    image: quay.io/keycloak/keycloak:26.1.3
     container_name: rm-keycloak
     profiles: ["enterprise-auth"]
     restart: unless-stopped
@@ -344,7 +350,7 @@ services:
 
   # ---------- profile: graph (V3 context graph) ----------
   neo4j:
-    image: neo4j:latest
+    image: neo4j:5.26.2-community
     container_name: rm-neo4j
     profiles: ["graph"]
     restart: unless-stopped
@@ -359,7 +365,7 @@ services:
 
   # ---------- profile: scan (uploaded evidence is untrusted) ----------
   clamav:
-    image: clamav/clamav:stable
+    image: clamav/clamav:1.4.2
     container_name: rm-clamav
     profiles: ["scan"]
     restart: unless-stopped
@@ -370,7 +376,7 @@ services:
 
   # ---------- profile: observability ----------
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v3.2.1
     container_name: rm-prometheus
     profiles: ["observability"]
     restart: unless-stopped
@@ -381,7 +387,7 @@ services:
       - prometheus-data:/prometheus
 
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:11.5.2
     container_name: rm-grafana
     profiles: ["observability"]
     restart: unless-stopped
@@ -396,7 +402,7 @@ services:
 
   # ---------- profile: tools ----------
   pgadmin:
-    image: dpage/pgadmin4:latest
+    image: dpage/pgadmin4:9.1
     container_name: rm-pgadmin
     profiles: ["tools"]
     restart: unless-stopped

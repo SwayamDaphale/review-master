@@ -2,7 +2,8 @@
 
 > **Audience:** Developers, QA Engineers, and System Architects.  
 > **Environment:** Ubuntu Linux (tested on 22.04 LTS / 24.04 LTS), Chromium / Brave Browser.  
-> **Repository Context:** Commands are run relative to the repository root (`<repo-root>/` or `review-master/`).
+> **Repository Context:** Commands are run relative to the repository root (`<repo-root>/` or `review-master/`).  
+> **Status:** Phase B1 Stabilized (Docker Compose, Alembic, FastAPI, React Frontend, MV3 Extension).
 
 ---
 
@@ -15,7 +16,7 @@ Before running Review Master components locally, verify that your host system ha
 | **Node.js** | `>= 20.x` (Recommended: `22.x LTS`) | `node -v` | Core runtime for extension and frontend |
 | **npm** | `>= 10.x` | `npm -v` | Package manager for frontend and extension |
 | **Python** | `3.12.x` | `python3.12 --version` | Target runtime for backend service |
-| **Docker** | `>= 24.x` | `docker --version` | Container engine for local data stores |
+| **Docker** | `>= 24.x` | `docker --version` | Container engine for local data stores and backend execution |
 | **Docker Compose** | `>= 2.20.x` (Compose V2) | `docker compose version` | Multi-container local orchestration |
 | **Chromium / Brave** | Latest stable | `brave-browser --version` or `google-chrome --version` | Browser host for extension |
 | **Git** | `>= 2.40.x` | `git --version` | Version control |
@@ -37,8 +38,8 @@ git status
 Review Master is structured as a decoupled monorepo:
 ```
 review-master/
-├── backend/       # FastAPI, SQLAlchemy, Alembic, Pydantic (Python 3.12)
-├── frontend/      # React 18, Vite, TypeScript, Tailwind/Vanilla CSS (Node 22)
+├── backend/       # FastAPI, SQLAlchemy 2.0, Alembic, Pydantic (Python 3.12)
+├── frontend/      # React 18, Vite 6, TypeScript, Tailwind CSS (Node 22)
 ├── extension/     # Chromium Manifest V3 extraction extension (Vanilla JS / Node tests)
 ├── docker/        # PostgreSQL init SQL, LiteLLM config, Prometheus
 ├── docs/          # Architecture, specs, data models, contracts, and ADRs
@@ -65,7 +66,7 @@ cd extension
 | **Run Unit & Regression Tests** | `npm test` | `extension/` | `[TERMINAL-TESTED]` | 52 passing tests across 5 suites (106ms). |
 | **Run Normalizers Suite** | `node --test tests/normalizers.test.mjs` | `extension/` | `[TERMINAL-TESTED]` | Normalizer unit assertions pass. |
 | **Run Layout Regression Fixtures** | `node --test tests/expanded-details.test.mjs` | `extension/` | `[TERMINAL-TESTED]` | 14 expanded DOM fixtures pass. |
-| **Verify Permission Gate** | `npm run check-permissions` | `extension/` | `[TERMINAL-TESTED]` | Confirms MV3 and host permissions restricted to `amazon.in`. |
+| **Verify Permission Gate** | `npm run check-permissions` | `extension/` | `[TERMINAL-TESTED]` | Confirms MV3 and host permissions strictly restricted to `amazon.in`. |
 | **Build / Verify Unpacked Bundle** | `npm run build` | `extension/` | `[TERMINAL-TESTED]` | Source verified and ready for Chromium unpacking. |
 
 ### 3.2 Loading in Brave / Chromium Browser `[DOCUMENTED PROCEDURE]`
@@ -90,11 +91,11 @@ cd extension
   2. Find the **Review Master** card.
   3. Click the circular **Reload** icon (or press `Ctrl+R` on that tab).
 
-### 3.4 Manual Extraction Testing & Web App Connection `[PENDING MANUAL BROWSER VALIDATION]`
+### 3.4 Manual Extraction Testing & Web App Connection `[TERMINAL & BROWSER READY]`
 
 1. Open a new tab in Brave/Chrome and navigate to a live Amazon India smartphone listing:
    - Example 1: `https://www.amazon.in/dp/B0CX8BC2MW` (Samsung Galaxy S24)
-   - Example 2: `https://www.amazon.in/dp/B0H297XH3K` (Redmi Turbo 5)
+   - Example 2: `https://www.amazon.in/dp/B0H297XH3K` (Redmi Note / Turbo)
 2. Wait for the Amazon product page to fully render.
 3. Click the **Extensions puzzle icon** in your browser toolbar, then click **Review Master**.
 4. In the Review Master popup:
@@ -104,7 +105,7 @@ cd extension
    - **Summary Grid:** Displays brand, model, RAM, storage, price (INR), display size, battery, and identity status.
    - **Normalized Tab:** Formatted JSON conforming to `smartphone-extraction-1.0.schema.json`.
    - **Raw Text Tab:** Preserved un-normalized DOM text for auditability.
-   - **Warnings Tab:** Surfaces any missing parameters (e.g., iPhone unstated RAM) without inventing zero values.
+   - **Warnings Tab:** Surfaces any missing parameters without inventing zero values.
 6. **Connect with Web App (Two Options):**
    - **Option A (One-Click Direct Launch):** Click **"Open in Review Master Web"**. This launches `http://localhost:5173/app/import#data=...` in a new tab, automatically loading the extracted specifications and finding catalogue matches.
    - **Option B (File Export & Import):** Click **"Download Validated JSON"** to export `smartphone-extraction-<ASIN>-<TIMESTAMP>.json`, then navigate to `http://localhost:5173/app/import` and upload or paste the file.
@@ -113,7 +114,7 @@ cd extension
 
 ## 4. Component B: Frontend Web Application
 
-The frontend is a single-page application built with React 18, Vite, TypeScript, and TanStack React Query.
+The frontend is a single-page application built with React 18, Vite 6, TypeScript, and TanStack React Query.
 
 ### 4.1 Commands & Execution
 
@@ -170,14 +171,15 @@ npm run dev -- --port 5174
 
 The backend is built with Python 3.12, FastAPI, SQLAlchemy 2.0, Alembic, and Pydantic Settings.
 
-### 5.1 Python Environment Evaluation & Setup
+### 5.1 Host Python Environment vs Containerized Execution
 
-Do **not** automatically create a new virtual environment. Follow this controlled evaluation sequence:
+To prevent polluting or breaking shared host Python environments (e.g. `/home/swayam/AI_World/Environments/env_genai/`), Review Master backend development is standardly executed **inside Docker containers**.
 
+If local host Python execution is explicitly desired, verify host Python version:
 ```bash
 cd backend
 
-# Step 1: Check whether the existing shared Python environment exists and is compatible
+# Step 1: Check Python version in shared environment
 if [ -f "/home/swayam/AI_World/Environments/env_genai/bin/python" ]; then
   /home/swayam/AI_World/Environments/env_genai/bin/python --version
 fi
@@ -185,155 +187,107 @@ fi
 
 #### Compatibility Criteria:
 1. **Python Version:** The Review Master backend strictly targets **Python 3.12** (`backend/requirements.txt`, `backend/README.md`).
-2. **Dependency Compatibility:** Must satisfy the dependencies listed in `backend/requirements.txt` and `backend/requirements-dev.txt` without package conflicts.
+2. **Dependency Separation:** Do not install packages into `/home/swayam/AI_World/Environments/env_genai/` without verifying it matches Python 3.12.
+3. If incompatible, create an isolated project virtual environment:
+   ```bash
+   python3.12 -m venv mr_env
+   source mr_env/bin/activate
+   pip install -r requirements-dev.txt
+   ```
 
-#### Resolution Workflow:
-- **Scenario A (Compatible):** If `/home/swayam/AI_World/Environments/env_genai/` runs Python 3.12 and is compatible:
-  ```bash
-  source /home/swayam/AI_World/Environments/env_genai/bin/activate
-  pip install -r requirements-dev.txt
-  ```
-- **Scenario B (Incompatible or Missing):** If `/home/swayam/AI_World/Environments/env_genai/` does not exist or uses a different Python version (e.g. Python 3.10):
-  - **Document the incompatibility** (e.g. "Shared environment uses Python 3.10; backend requires Python 3.12").
-  - **Request approval** before creating a project-specific environment.
-  - Upon approval, create and activate the project-local virtual environment:
-    ```bash
-    python3.12 -m venv mr_env
-    source mr_env/bin/activate
-    pip install -r requirements-dev.txt
-    ```
+### 5.2 Containerized Backend Testing & Tooling (Recommended)
 
-*(To deactivate any active virtual environment later, simply run `deactivate`)*.
+Run backend tests, linting, and typechecks directly inside the verified Docker container without modifying your host system:
 
-### 5.2 Commands & Execution
+```bash
+# Run from repository root:
 
-With the approved Python 3.12 environment activated in `backend/`:
+# 1. Run full test suite with coverage
+docker compose run --rm backend pytest -v --cov=app
 
-| Operation | Command | Working Directory | Status | Expected Output |
-|---|---|---|:---:|---|
-| **Start FastAPI Server** | `uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload` | `backend/` | `[FUTURE STAGE]` | `Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)` |
-| **Run Unit Tests** | `pytest tests/` | `backend/` | `[FUTURE STAGE]` | Pytest discovers and runs unit/config tests |
-| **Run Determinism Gate** | `pytest -m golden` | `backend/` | `[FUTURE STAGE]` | Executes immutable golden evaluation tests |
-| **Run Ruff Linter** | `ruff check app tests` | `backend/` | `[FUTURE STAGE]` | `All checks passed!` |
-| **Run Ruff Format Check** | `ruff format --check app tests` | `backend/` | `[FUTURE STAGE]` | Zero formatting drift detected |
-| **Run Mypy Typecheck** | `mypy app` | `backend/` | `[FUTURE STAGE]` | `Success: no issues found in X source files` |
-| **Export OpenAPI Spec** | `python -m app.tools.export_openapi openapi.json` | `backend/` | `[FUTURE STAGE]` | Generates validated `openapi.json` |
+# 2. Run Ruff linter
+docker compose run --rm backend ruff check .
 
-*Note on Host Binding:* Ordinary local development uses `--host 127.0.0.1` to restrict access to the local loopback interface. Use `--host 0.0.0.0` only when external container or LAN access is explicitly needed.
+# 3. Run Ruff format check
+docker compose run --rm backend ruff format --check .
+
+# 4. Run Mypy static type checker
+docker compose run --rm backend mypy app
+
+# 5. Export OpenAPI 3.1 specification schema
+docker compose run --rm backend python -m app.tools.export_openapi openapi.json
+```
 
 ### 5.3 Application URLs & API Documentation
 - **Base API URL:** `http://127.0.0.1:8000`
+- **Liveness Health Check:** `http://127.0.0.1:8000/healthz` (returns `{"status":"ok","app":"review-master-backend","environment":"..."}`)
 - **Interactive Swagger UI:** `http://127.0.0.1:8000/docs`
 - **ReDoc Alternative UI:** `http://127.0.0.1:8000/redoc`
 - **Raw OpenAPI 3.1 JSON:** `http://127.0.0.1:8000/openapi.json`
 
-### 5.4 Health & API Ingestion Testing (via curl) `[FUTURE STAGE]`
-
-```bash
-# 1. Test basic liveness
-curl -s http://127.0.0.1:8000/healthz | jq .
-# Expected: {"status": "ok"}
-
-# 2. Test database readiness
-curl -s http://127.0.0.1:8000/readyz | jq .
-# Expected: {"status": "ready", "database": "connected"}
-
-# 3. Ingest a smartphone extraction record (Stage 5 target)
-curl -X POST http://127.0.0.1:8000/api/v1/listings/ingest \
-  -H "Content-Type: application/json" \
-  -d @../extension/tests/fixtures/sample_galaxy_s24.json | jq .
-```
-
 ---
 
-## 6. Component D: Database & Infrastructure
+## 6. Component D: Database & Infrastructure (Docker Compose)
 
-PostgreSQL 17 and Redis 7 are managed locally via Docker Compose.
+All persistent datastores and services are orchestrated through `compose.yml`.
 
-### 6.1 Essential vs. Optional Services
+### 6.1 Service Inventory & Port Mappings
 
-| Service | Category | Container Name | Port Mapping | Description |
-|---|---|---|---|---|
-| **postgres** | **Essential** | `rm-postgres` | `5433:5432` | Canonical source of truth (PostgreSQL 17) |
-| **redis** | **Essential** | `rm-redis` | `6379:6379` | Cache, rate limiter, Celery message broker |
-| **migrate** | **Essential** | `rm-migrate` | N/A | One-shot Alembic database migration runner |
-| **objectstore** | Optional | `rm-objectstore` | `8333:8333` | SeaweedFS S3-compatible document store |
-| **mailpit** | Optional | `rm-mailpit` | `8025:8025` | Mock email web UI for verification links |
-| **litellm** | Optional (`--profile llm-gateway`) | `rm-litellm` | `4000:4000` | Unified AI gateway proxy |
-| **ollama** | Optional (`--profile local-llm`) | `rm-ollama` | `11434:11434`| Local LLM execution engine |
+| Service | Container Name | Host Port | Internal Port | Status / Healthcheck | Notes |
+|---|---|---|---|---|---|
+| **postgres** | `rm-postgres` | `5433` | `5432` | `pg_isready -U postgres` | Published on host 5433 to avoid local 5432 conflict |
+| **redis** | `rm-redis` | `6380` | `6379` | `redis-cli ping` | Published on host 6380 to avoid local 6379 conflict |
+| **migrate** | `rm-migrate` | N/A | N/A | One-shot Alembic migration | Runs `alembic upgrade head` before backend starts |
+| **backend** | `rm-backend` | `8000` | `8000` | `curl -f http://localhost:8000/healthz` | FastAPI REST service (Uvicorn reload) |
+| **frontend** | `rm-frontend` | `5173` | `5173` | Web UI | React 18 + Vite 6 dev server |
+| **objectstore**| `rm-objectstore` | `8333` | `8333` | S3 gateway check | SeaweedFS pinned by digest for HTML snapshots |
+| **mailpit** | `rm-mailpit` | `8025`, `1025` | `8025`, `1025` | Mailpit Web UI & SMTP | Pinned `axllent/mailpit:v1.33` |
+| **worker** | `rm-worker` | N/A | N/A | Profile `celery` | Celery background task worker (Phase B4) |
+| **beat** | `rm-beat` | N/A | N/A | Profile `celery` | Celery beat periodic scheduler (Phase B4) |
 
-*Note:* The extension and frontend can run independently for development without starting Docker Compose.
-
-### 6.2 Infrastructure Commands
+### 6.2 Verified Docker Compose Commands
 
 Run all Docker commands from the repository root:
 
 ```bash
-# 1. Copy the environment template (safe development defaults)
-cp .env.example .env
+# 1. Start core application and datastores (postgres, redis, seaweedfs, backend, frontend)
+docker compose up -d
 
-# 2. Start essential data stores (PostgreSQL & Redis) [DOCUMENTED PROCEDURE]
-docker compose up -d postgres redis
+# 2. Start core services without frontend container (for local npm run dev workflows)
+docker compose up -d backend
 
-# 3. Verify container health [DOCUMENTED PROCEDURE]
+# 3. Verify health and status of all containers
 docker compose ps
-# Expected: rm-postgres (healthy), rm-redis (healthy)
 
-# 4. Run database migrations [FUTURE STAGE - Stage 4 target]
+# 4. Run database migrations on-demand
 docker compose run --rm migrate
 
-# 5. Check PostgreSQL database logs [DOCUMENTED PROCEDURE]
-docker compose logs -f postgres
+# 5. Check real-time backend logs (verifies database endpoint and safe startup)
+docker compose logs -f backend
 
-# 6. Standard safe shutdown: preserves persistent database volumes [DOCUMENTED PROCEDURE]
+# 6. Safe shutdown: stops and removes containers while preserving persistent database volumes
 docker compose down
 ```
 
 > [!CAUTION]
 > **Destructive Command:**  
 > `docker compose down -v`  
-> The `-v` flag permanently removes named Docker volumes (`postgres-data`, `redis-data`, `objectstore-data`), destroying all database records, user tables, and catalog mappings.  
+> The `-v` flag permanently removes named Docker volumes (`postgres-data`, `redis-data`, `objectstore-data`), destroying all database records, catalog mappings, and test runs.  
 > **Always use `docker compose down` for normal shutdown.** Only use `-v` if you intentionally wish to reset the entire database to a completely blank state.
 
----
+### 6.3 Optional Service Profiles
 
-## 7. Complete Local Development Workflow
-
-Follow this step-by-step sequence to run Review Master locally across multiple terminal tabs.
-
-### Terminal 1: Infrastructure (PostgreSQL & Redis) `[DOCUMENTED PROCEDURE]`
 ```bash
-# Run from repository root
-docker compose up -d postgres redis
-docker compose ps
-```
+# Enable Celery background processing (Phase B4):
+docker compose --profile celery up -d
 
-### Terminal 2: Backend API (FastAPI) `[FUTURE STAGE]`
-```bash
-# Run from repository root
-cd backend
-# Activate approved environment:
-source /path/to/approved_env/bin/activate
-uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+# Enable Developer tooling (Mailpit, etc.):
+docker compose --profile dev up -d
 ```
-*Verify: Open `http://127.0.0.1:8000/docs` in your browser.*
-
-### Terminal 3: Frontend Web Dashboard (React + Vite) `[DOCUMENTED PROCEDURE]`
-```bash
-# Run from repository root
-cd frontend
-npm run dev
-```
-*Verify: Open `http://127.0.0.1:5173` in your browser.*
-
-### Browser Tab: Shopping & Extension Testing `[PENDING MANUAL BROWSER VALIDATION]`
-1. In Brave/Chrome, ensure the extension is loaded from `<repo-root>/extension` via `brave://extensions`.
-2. Visit `https://www.amazon.in/dp/B0H297XH3K`.
-3. Open the Review Master popup, click **Extract Smartphone Data**, and inspect results.
 
 ---
 
-## 8. Master Command Reference Table
+## 7. Master Command Reference Table
 
 | Component | Goal | Command | Working Directory | Verification Status | Expected Result |
 |---|---|---|---|:---:|---|
@@ -342,54 +296,30 @@ npm run dev
 | **Extension** | Build check | `npm run build` | `extension/` | `[TERMINAL-TESTED]` | Extension ready for unpacking |
 | **Frontend** | Install packages | `npm ci` | `frontend/` | `[TERMINAL-TESTED]` | 297 packages installed cleanly from lockfile |
 | **Frontend** | Run tests | `npm test` | `frontend/` | `[TERMINAL-TESTED]` | 10 test suites passed, 65 tests passed (Vitest) |
-| **Frontend** | Run ESLint | `npm run lint` | `frontend/` | `[TERMINAL-TESTED]` | ESLint 9 scan passed (0 errors) |
+| **Frontend** | Run ESLint | `npm run lint` | `frontend/` | `[TERMINAL-TESTED]` | ESLint scan passed (0 errors) |
 | **Frontend** | Typecheck | `npm run typecheck` | `frontend/` | `[TERMINAL-TESTED]` | Zero TypeScript errors (`tsc --noEmit`) |
 | **Frontend** | Start dev server | `npm run dev` | `frontend/` | `[TERMINAL-TESTED]` | Listening on `http://localhost:5173` (200 OK) |
 | **Frontend** | Build bundle | `npm run build` | `frontend/` | `[TERMINAL-TESTED]` | Production bundle generated in `dist/` |
-| **Backend** | Evaluate env | Check `env_genai` version | `backend/` | `[DOCUMENTED PROCEDURE]` | Verify Python 3.12 compatibility |
-| **Backend** | Start API | `uvicorn app.main:app --host 127.0.0.1 --reload` | `backend/` | `[FUTURE STAGE]` | Listening on `http://127.0.0.1:8000` |
-| **Backend** | Run tests | `pytest tests/` | `backend/` | `[FUTURE STAGE]` | Unit test suite passing |
-| **Backend** | Lint code | `ruff check .` | `backend/` | `[FUTURE STAGE]` | Clean lint report |
-| **Database** | Start datastores | `docker compose up -d postgres redis` | Repo Root | `[DOCUMENTED PROCEDURE]` | Containers healthy |
-| **Database** | Run migrations | `docker compose run --rm migrate` | Repo Root | `[FUTURE STAGE]` | Database schema at head |
-| **Database** | Stop services | `docker compose down` | Repo Root | `[DOCUMENTED PROCEDURE]` | Containers stopped safely (data preserved) |
+| **Backend** | Start API | `docker compose up -d backend` | Repo Root | `[TERMINAL-TESTED]` | Listening on `http://localhost:8000` (healthy) |
+| **Backend** | Health Check | `curl -fsS http://localhost:8000/healthz` | Any | `[TERMINAL-TESTED]` | `{"status":"ok","app":"review-master-backend",...}` |
+| **Backend** | Run unit tests | `docker compose run --rm backend pytest` | Repo Root | `[TERMINAL-TESTED]` | 8 passing tests (0 failed) |
+| **Backend** | Lint code | `docker compose run --rm backend ruff check .` | Repo Root | `[TERMINAL-TESTED]` | All checks passed |
+| **Backend** | Typecheck | `docker compose run --rm backend mypy app` | Repo Root | `[TERMINAL-TESTED]` | Success: no issues found in 6 source files |
+| **Database** | Start datastores | `docker compose up -d postgres redis` | Repo Root | `[TERMINAL-TESTED]` | Containers healthy (`5433` and `6380`) |
+| **Database** | Run migrations | `docker compose run --rm migrate` | Repo Root | `[TERMINAL-TESTED]` | Revision `0001_initial_baseline` applied |
+| **Database** | Stop services | `docker compose down` | Repo Root | `[TERMINAL-TESTED]` | Containers stopped safely (data preserved) |
 
 ---
 
-## 9. Troubleshooting & FAQ
-
-### Q1: `ModuleNotFoundError: No module named 'pydantic'` when running pytest
-- **Cause:** Running `pytest` using the host's system Python (e.g. Python 3.10) rather than the approved Python 3.12 virtual environment.
-- **Solution:** Activate the approved Python 3.12 environment first, then re-run `pytest tests/`.
-
-### Q2: Port 5173 is already in use
-- **Cause:** Another instance of Vite or another local web server is occupying the port.
-- **Solution:** Identify the process with `lsof -i :5173` or `ss -tulpn | grep 5173`, inspect the PID, and gracefully terminate only that specific process with `kill <PID>`. Alternatively, start Vite on another port: `npm run dev -- --port 5174`.
-
-### Q3: Extension popup says "Unsupported URL"
-- **Cause:** The active tab is not an Amazon India URL.
-- **Solution:** Navigate to `https://www.amazon.in/` (specifically a product detail page containing `/dp/` or `/gp/product/`).
-
-### Q4: Extension returns "Needs Review: Product Not Found"
-- **Cause:** The page is a search result, category browse page, or non-product page missing `#productTitle`.
-- **Solution:** Open an individual smartphone product listing.
-
-### Q5: Docker Compose `migrate` service fails
-- **Cause:** In Phase 1, Alembic database migrations have not yet been written.
-- **Solution:** Start only essential datastores without migrations: `docker compose up -d postgres redis`.
-
----
-
-## 10. Safe Shutdown Procedures
+## 8. Safe Shutdown Procedures
 
 To cleanly shut down your local development environment:
 
 ```bash
-# 1. Stop Frontend: Press Ctrl+C in Terminal 3
-# 2. Stop Backend: Press Ctrl+C in Terminal 2
-# 3. Stop Containers: In Terminal 1 (from repository root), run:
+# 1. Stop Frontend: Press Ctrl+C in your frontend terminal
+# 2. Stop Docker Stack: In repository root, run:
 docker compose down
 
-# 4. Optional: Clean local caches
+# 3. Optional: Clean transient local test caches
 rm -rf frontend/dist backend/.pytest_cache backend/.ruff_cache
 ```

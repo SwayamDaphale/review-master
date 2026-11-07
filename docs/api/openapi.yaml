@@ -256,7 +256,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Product'
+                $ref: '#/components/schemas/ProductDetail'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -2061,6 +2061,18 @@ components:
       required:
       - id
       - product_id
+    ProductDetail:
+      type: object
+      properties:
+        product:
+          $ref: '#/components/schemas/Product'
+        variants:
+          type: array
+          items:
+            $ref: '#/components/schemas/Variant'
+      required:
+      - product
+      - variants
     ProductSearchResult:
       type: object
       properties:

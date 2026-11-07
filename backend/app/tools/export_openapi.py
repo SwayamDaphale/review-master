@@ -19,4 +19,3 @@ def export_openapi(output_path: str) -> None:
 if __name__ == "__main__":
     target = sys.argv[1] if len(sys.argv) > 1 else "openapi.json"
     export_openapi(target)
-

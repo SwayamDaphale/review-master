@@ -48,3 +48,21 @@ def test_production_environment_accepts_strong_secrets():
     )
     assert s.APP_ENV == "production"
     assert s.JWT_SECRET == "valid_random_jwt_secret_value_12345"
+
+
+def test_export_openapi_utility(tmp_path):
+    """Verify export_openapi writes valid JSON schema."""
+    import json
+
+    from app.tools.export_openapi import export_openapi
+
+    target_file = tmp_path / "openapi.json"
+    export_openapi(str(target_file))
+
+    assert target_file.exists()
+    with open(target_file, encoding="utf-8") as f:
+        schema = json.load(f)
+    assert schema["openapi"].startswith("3.")
+    assert "/api/v1/products" in schema["paths"]
+    assert "/readyz" in schema["paths"]
+    assert "/healthz" in schema["paths"]

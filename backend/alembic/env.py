@@ -4,6 +4,7 @@ from sqlalchemy import engine_from_config, pool
 
 from alembic import context
 from app.core.config import settings
+from app.models import Base
 
 # Alembic Config object, which provides access to the values within the .ini file in use.
 config = context.config
@@ -13,8 +14,7 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # Model's MetaData object for 'autogenerate' support.
-# In Phase B1, target_metadata is None; in Phase B3, this will import Base.metadata.
-target_metadata = None
+target_metadata = Base.metadata
 
 
 def get_url() -> str:

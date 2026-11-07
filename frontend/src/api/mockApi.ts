@@ -186,4 +186,41 @@ export const mockApi: ApiClient = {
       reason: 'The model matches, but more than one variant could fit. Choose the right one.',
     };
   },
+
+  async getCatalogProducts(params) {
+    await wait();
+    const rows = FIXTURES.filter((f) => !params?.category || f.product.category === params.category);
+    const items = rows.map((f) => ({
+      id: f.product.id,
+      name: f.product.name,
+      manufacturer: f.product.manufacturer,
+      category: f.product.category,
+      mpn: null,
+      generation: null,
+    }));
+    return { items: clone(items), next_cursor: null };
+  },
+
+  async getCatalogProductDetail(productId: string) {
+    await wait();
+    const rows = FIXTURES.filter((f) => f.product.id === productId);
+    const first = rows[0];
+    if (!first) throw new ApiError('not_found', 'Product not found');
+    return clone({
+      product: {
+        id: first.product.id,
+        name: first.product.name,
+        manufacturer: first.product.manufacturer,
+        category: first.product.category,
+        mpn: null,
+        generation: null,
+      },
+      variants: rows.map((r) => ({
+        id: r.variant.id,
+        product_id: r.product.id,
+        configuration: r.variant.configuration,
+        label: r.variant.label,
+      })),
+    });
+  },
 };

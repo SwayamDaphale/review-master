@@ -81,12 +81,12 @@ src/
   pages/      landing, public, app and admin pages
   state/      theme, auth session, site settings, saved products and alerts
   styles/     tokens.css (light and dark), base.css, app.css
-  types/      API types that mirror architecture/api/openapi.yaml
+  types/      API types that mirror docs/api/openapi.yaml
 ```
 
 ## Connecting the real backend
 
-1. Write a class that implements `ApiClient` (`src/api/client.ts`) and calls `/api/v1` using the shapes in `architecture/api/openapi.yaml`.
+1. Write a class that implements `ApiClient` (`src/api/client.ts`) and calls `/api/v1` using the shapes in `docs/api/openapi.yaml`.
 2. Return it from `src/api/index.ts` instead of `mockApi`.
 3. Replace `localStorage` for saved items and alerts with the `/api/v1/saved-products` and `/api/v1/price-alerts` endpoints, and settings with admin endpoints.
 4. Replace the admin password gate with the backend's admin authentication.

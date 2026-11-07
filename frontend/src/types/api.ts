@@ -1,4 +1,4 @@
-// Types mirror architecture/api/openapi.yaml (Evaluation, ParameterResult, EvidenceRef, Offer, ...).
+// Types mirror docs/api/openapi.yaml (Evaluation, ParameterResult, EvidenceRef, Offer, ...).
 // The UI only displays these values. It never computes a score.
 
 export type Category = 'smartphone' | 'laptop' | 'external_ssd';
@@ -84,6 +84,8 @@ export interface Product {
   model: string;
   category: Category;
   asin?: string;
+  mpn?: string;
+  generation?: string;
 }
 
 export interface Variant {
@@ -219,6 +221,34 @@ export interface MatchResult {
   match_state: MatchState;
   candidates: ProductSummary[];
   reason: string;
+}
+
+// --- B2 Catalog Schemas (directly mirroring PostgreSQL and FastAPI /api/v1/products) ---
+
+export interface CatalogProduct {
+  id: string;
+  name: string;
+  manufacturer: string;
+  category: string;
+  generation?: string | null;
+  mpn?: string | null;
+}
+
+export interface CatalogVariant {
+  id: string;
+  product_id: string;
+  configuration: Record<string, unknown>;
+  label: string;
+}
+
+export interface CatalogProductDetail {
+  product: CatalogProduct;
+  variants: CatalogVariant[];
+}
+
+export interface CatalogSearchResult {
+  items: CatalogProduct[];
+  next_cursor: string | null;
 }
 
 export class ApiError extends Error {

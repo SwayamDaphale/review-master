@@ -8,10 +8,14 @@ import logging
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Response, status
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 
+from app.api.v1.router import api_v1_router
 from app.core.config import settings
+from app.db.session import engine
 
 # Configure structured logging
 logging.basicConfig(
@@ -67,3 +71,29 @@ async def healthz() -> dict[str, Any]:
         "app": "review-master-backend",
         "environment": settings.APP_ENV,
     }
+
+
+@app.get("/readyz", tags=["Health"])
+def readyz(response: Response) -> dict[str, Any]:
+    """Readiness probe validating core infrastructure connectivity (PostgreSQL)."""
+    checks: dict[str, str] = {}
+    is_ready = True
+
+    # 1. Check database connectivity
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        checks["database"] = "ok"
+    except (SQLAlchemyError, OSError) as exc:
+        is_ready = False
+        checks["database"] = f"error: {exc.__class__.__name__}"
+
+    if not is_ready:
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+        return {"status": "unavailable", "checks": checks}
+
+    return {"status": "ok", "checks": checks}
+
+
+# Register versioned API routers
+app.include_router(api_v1_router)

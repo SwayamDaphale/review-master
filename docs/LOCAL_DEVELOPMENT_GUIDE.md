@@ -221,9 +221,20 @@ docker compose run --rm backend python -m app.tools.export_openapi openapi.json
 ### 5.3 Application URLs & API Documentation
 - **Base API URL:** `http://127.0.0.1:8000`
 - **Liveness Health Check:** `http://127.0.0.1:8000/healthz` (returns `{"status":"ok","app":"review-master-backend","environment":"..."}`)
+- **Readiness Health Check:** `http://127.0.0.1:8000/readyz` (validates PostgreSQL connectivity: `{"status":"ok","checks":{"database":"ok"}}`)
+- **Product Search & Listing:** `http://127.0.0.1:8000/api/v1/products` (query params: `q`, `category`, `limit`, `cursor`)
+- **Product Detail & Variants:** `http://127.0.0.1:8000/api/v1/products/{product_id}`
 - **Interactive Swagger UI:** `http://127.0.0.1:8000/docs`
 - **ReDoc Alternative UI:** `http://127.0.0.1:8000/redoc`
 - **Raw OpenAPI 3.1 JSON:** `http://127.0.0.1:8000/openapi.json`
+
+### 5.4 Database Seeding (Phase B2)
+
+To populate the development database with idempotent reference catalog data (smartphones, laptops, external SSDs) without fake scores or pricing:
+
+```bash
+docker compose run --rm backend python -m app.db.seed
+```
 
 ---
 
@@ -295,18 +306,22 @@ docker compose --profile dev up -d
 | **Extension** | Check permissions | `npm run check-permissions` | `extension/` | `[TERMINAL-TESTED]` | Permission gate verified (MV3) |
 | **Extension** | Build check | `npm run build` | `extension/` | `[TERMINAL-TESTED]` | Extension ready for unpacking |
 | **Frontend** | Install packages | `npm ci` | `frontend/` | `[TERMINAL-TESTED]` | 297 packages installed cleanly from lockfile |
-| **Frontend** | Run tests | `npm test` | `frontend/` | `[TERMINAL-TESTED]` | 10 test suites passed, 65 tests passed (Vitest) |
+| **Frontend** | Run tests | `npm test` | `frontend/` | `[TERMINAL-TESTED]` | 11 test suites passed, 73 tests passed (Vitest) |
 | **Frontend** | Run ESLint | `npm run lint` | `frontend/` | `[TERMINAL-TESTED]` | ESLint scan passed (0 errors) |
 | **Frontend** | Typecheck | `npm run typecheck` | `frontend/` | `[TERMINAL-TESTED]` | Zero TypeScript errors (`tsc --noEmit`) |
 | **Frontend** | Start dev server | `npm run dev` | `frontend/` | `[TERMINAL-TESTED]` | Listening on `http://localhost:5173` (200 OK) |
 | **Frontend** | Build bundle | `npm run build` | `frontend/` | `[TERMINAL-TESTED]` | Production bundle generated in `dist/` |
 | **Backend** | Start API | `docker compose up -d backend` | Repo Root | `[TERMINAL-TESTED]` | Listening on `http://localhost:8000` (healthy) |
-| **Backend** | Health Check | `curl -fsS http://localhost:8000/healthz` | Any | `[TERMINAL-TESTED]` | `{"status":"ok","app":"review-master-backend",...}` |
-| **Backend** | Run unit tests | `docker compose run --rm backend pytest` | Repo Root | `[TERMINAL-TESTED]` | 8 passing tests (0 failed) |
+| **Backend** | Liveness Check | `curl -fsS http://localhost:8000/healthz` | Any | `[TERMINAL-TESTED]` | `{"status":"ok","app":"review-master-backend",...}` |
+| **Backend** | Readiness Check | `curl -fsS http://localhost:8000/readyz` | Any | `[TERMINAL-TESTED]` | `{"status":"ok","checks":{"database":"ok"}}` |
+| **Backend** | Catalog Search | `curl -fsS http://localhost:8000/api/v1/products` | Any | `[TERMINAL-TESTED]` | Returns PostgreSQL catalog products |
+| **Backend** | Product Detail | `curl -fsS http://localhost:8000/api/v1/products/{id}` | Any | `[TERMINAL-TESTED]` | Returns product and attached variants |
+| **Backend** | Seed Database | `docker compose run --rm backend python -m app.db.seed` | Repo Root | `[TERMINAL-TESTED]` | Idempotent catalog seed executed |
+| **Backend** | Run unit tests | `docker compose run --rm backend pytest` | Repo Root | `[TERMINAL-TESTED]` | 23 passing tests (96% coverage) |
 | **Backend** | Lint code | `docker compose run --rm backend ruff check .` | Repo Root | `[TERMINAL-TESTED]` | All checks passed |
-| **Backend** | Typecheck | `docker compose run --rm backend mypy app` | Repo Root | `[TERMINAL-TESTED]` | Success: no issues found in 6 source files |
+| **Backend** | Typecheck | `docker compose run --rm backend mypy app` | Repo Root | `[TERMINAL-TESTED]` | Success: no issues found in 23 source files |
 | **Database** | Start datastores | `docker compose up -d postgres redis` | Repo Root | `[TERMINAL-TESTED]` | Containers healthy (`5433` and `6380`) |
-| **Database** | Run migrations | `docker compose run --rm migrate` | Repo Root | `[TERMINAL-TESTED]` | Revision `0001_initial_baseline` applied |
+| **Database** | Run migrations | `docker compose run --rm migrate` | Repo Root | `[TERMINAL-TESTED]` | Revisions up to `0002_catalog_tables` applied |
 | **Database** | Stop services | `docker compose down` | Repo Root | `[TERMINAL-TESTED]` | Containers stopped safely (data preserved) |
 
 ---

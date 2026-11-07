@@ -7,13 +7,14 @@ import type {
   ProductSummary,
   VariantView,
   Category,
+  CatalogSearchResult,
+  CatalogProductDetail,
 } from '../types/api';
 import type { ParsedIdentifier } from '../lib/identifiers';
 
 /**
- * The contract the UI depends on. It follows architecture/api/openapi.yaml.
- * Today `mockApi` implements it. When the FastAPI backend exists, write an
- * implementation that calls /api/v1 and switch it in src/api/index.ts.
+ * The contract the UI depends on. It follows docs/api/openapi.yaml.
+ * `mockApi` implements demo fixtures. `httpClient` communicates with FastAPI /api/v1.
  */
 export interface ApiClient {
   listProducts(category?: Category): Promise<ProductSummary[]>;
@@ -25,4 +26,13 @@ export interface ApiClient {
   getSummaries(variantIds: string[]): Promise<ProductSummary[]>;
   compare(variantIds: string[]): Promise<ComparisonResult>;
   matchExtracted(extracted: ExtractedSmartphone): Promise<MatchResult>;
+
+  // Catalog-specific endpoints (Phase B2)
+  getCatalogProducts(params?: {
+    q?: string;
+    category?: Category;
+    limit?: number;
+    cursor?: string;
+  }): Promise<CatalogSearchResult>;
+  getCatalogProductDetail(productId: string): Promise<CatalogProductDetail>;
 }

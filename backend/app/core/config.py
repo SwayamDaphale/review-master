@@ -46,8 +46,20 @@ class Settings(BaseSettings):
 
     # Core Security Secrets (Required in production)
     JWT_SECRET: str = Field(
-        default="change-me-dev-only",
+        default="change-me-dev-only-32-byte-secret-key-1234",
         description="Secret key for JWT token signatures",
+    )
+    JWT_ALGORITHM: str = Field(
+        default="HS256",
+        description="JWT signing algorithm (HS256 for symmetric key)",
+    )
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(
+        default=15,
+        description="Access token lifespan in minutes",
+    )
+    REFRESH_TOKEN_EXPIRE_DAYS: int = Field(
+        default=7,
+        description="Refresh token lifespan in days",
     )
     API_KEY_PEPPER: str = Field(
         default="change-me-dev-only",
@@ -83,7 +95,12 @@ class Settings(BaseSettings):
     def validate_production_secrets(self) -> "Settings":
         """Enforce strong credentials in production environment."""
         if self.APP_ENV == "production":
-            insecure_defaults = {"change-me-dev-only", "", None}
+            insecure_defaults = {
+                "change-me-dev-only",
+                "change-me-dev-only-32-byte-secret-key-1234",
+                "",
+                None,
+            }
             if self.JWT_SECRET in insecure_defaults:
                 raise ValueError(
                     "JWT_SECRET must be configured with a secure random secret in production."

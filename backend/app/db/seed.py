@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from app.db.session import SessionLocal
 from app.models.category import Category
 from app.models.evaluation import EvaluationModel, EvaluationModelVersion
+from app.models.identity import Role
 from app.models.marketplace import Marketplace
 from app.models.product import Product
 from app.models.product_family import ProductFamily
@@ -241,9 +242,34 @@ SMARTPHONE_EVAL_DEFINITION: dict[str, Any] = {
 }
 
 
+SEED_ROLES: list[dict[str, str]] = [
+    {
+        "name": "admin",
+        "description": "System Administrator with full access",
+    },
+    {
+        "name": "expert_reviewer",
+        "description": "Expert reviewer with evaluation and evidence authoring capabilities",
+    },
+    {
+        "name": "public_reviewer",
+        "description": "Verified public reviewer capable of submitting reviews and evidence",
+    },
+    {
+        "name": "consumer",
+        "description": "Default consumer user role for browsing, comparing, and reading reviews",
+    },
+    {
+        "name": "api_consumer",
+        "description": "Programmatic API consumer for data ingestion and integration",
+    },
+]
+
+
 def seed_database(db: Session) -> dict[str, int]:
     """Execute idempotent seed operations on categories, families, products, variants, and marketplaces."""
     counts = {
+        "roles": 0,
         "categories": 0,
         "marketplaces": 0,
         "families": 0,
@@ -251,6 +277,20 @@ def seed_database(db: Session) -> dict[str, int]:
         "variants": 0,
         "evaluation_models": 0,
     }
+
+    # 0. Roles
+    for role_data in SEED_ROLES:
+        existing_role = db.execute(
+            select(Role).where(Role.name == role_data["name"])
+        ).scalar_one_or_none()
+        if not existing_role:
+            role = Role(
+                name=role_data["name"],
+                description=role_data["description"],
+            )
+            db.add(role)
+            db.flush()
+            counts["roles"] += 1
 
     # 1. Categories
     category_map: dict[str, Category] = {}
@@ -388,7 +428,8 @@ def seed_database(db: Session) -> dict[str, int]:
 
     db.commit()
     logger.info(
-        "Seeding completed. New rows added: categories=%d, marketplaces=%d, families=%d, products=%d, variants=%d, models=%d",
+        "Seeding completed. New rows added: roles=%d, categories=%d, marketplaces=%d, families=%d, products=%d, variants=%d, models=%d",
+        counts["roles"],
         counts["categories"],
         counts["marketplaces"],
         counts["families"],

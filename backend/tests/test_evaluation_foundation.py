@@ -6,6 +6,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.core.auth import AuthenticatedUser, get_current_user
+from app.core.permissions import RoleName, get_permissions_for_roles
 from app.db.base import Base
 from app.db.dependencies import get_db
 from app.db.seed import seed_database
@@ -34,7 +36,18 @@ def eval_setup():
         finally:
             session.close()
 
+    def override_auth():
+        roles = [RoleName.EXPERT_REVIEWER.value]
+        return AuthenticatedUser(
+            id="test-expert-principal",
+            email="expert@test.local",
+            roles=roles,
+            permissions=get_permissions_for_roles(roles),
+            is_authenticated=True,
+        )
+
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_user] = override_auth
     test_db = TestingSession()
     with TestClient(app) as client:
         yield test_db, client

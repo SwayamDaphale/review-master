@@ -41,7 +41,7 @@ x-backend-env: &backend-env
 
   # --- identity & security (safe dev defaults; strong values required in prod) ---
   AUTH_PROVIDER: ${AUTH_PROVIDER:-builtin}            # builtin | keycloak
-  JWT_SECRET: ${JWT_SECRET:-change-me-dev-only}
+  JWT_SECRET: ${JWT_SECRET:-change-me-dev-only-32-byte-secret-key-1234}
   API_KEY_PEPPER: ${API_KEY_PEPPER:-change-me-dev-only}
   OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:-}
 

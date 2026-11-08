@@ -7,7 +7,8 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.auth import AuthenticatedUser, get_current_user
+from app.core.auth import AuthenticatedUser, require_permissions
+from app.core.permissions import Permission
 from app.db.dependencies import get_db
 from app.models.extraction import ExtractionRecord
 from app.schemas.contract_validator import ContractValidationError
@@ -35,7 +36,9 @@ async def submit_smartphone_extraction(
     request: Request,
     response: Response,
     db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    current_user: Annotated[
+        AuthenticatedUser, Depends(require_permissions(Permission.INGESTION_SUBMIT))
+    ],
     idempotency_key: Annotated[
         str | None,
         Header(
@@ -103,7 +106,9 @@ async def submit_smartphone_extraction(
 def get_extraction_record(
     record_id: str,
     db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    current_user: Annotated[
+        AuthenticatedUser, Depends(require_permissions(Permission.INGESTION_READ))
+    ],
 ) -> dict:
     """Retrieve extraction snapshot record."""
     rec = db.execute(

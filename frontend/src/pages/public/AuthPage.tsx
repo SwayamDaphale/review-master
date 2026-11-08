@@ -13,10 +13,15 @@ interface LocationState {
 
 export default function AuthPage({ mode }: { mode: 'signin' | 'signup' }) {
   usePageTitle(mode === 'signup' ? 'Create account' : 'Sign in');
-  const { session, signInWithGoogle, signInDemo } = useAuth();
+  const { session, signInWithGoogle, signInWithEmail, registerWithEmail, signInDemo } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [error, setError] = useState<string | null>(null);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
   const from = (location.state as LocationState | null)?.from ?? '/app';
   const configured = isGoogleConfigured();
 
@@ -28,6 +33,30 @@ export default function AuthPage({ mode }: { mode: 'signin' | 'signup' }) {
     else setError(result.error);
   };
 
+  const handleEmailSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (!email || !password) {
+      setError('Please provide both email and password.');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res =
+        mode === 'signup'
+          ? await registerWithEmail(email, password, displayName || undefined)
+          : await signInWithEmail(email, password);
+
+      if (res.ok) {
+        navigate(from, { replace: true });
+      } else {
+        setError(res.error);
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="auth">
       <header className="auth__top">
@@ -37,30 +66,90 @@ export default function AuthPage({ mode }: { mode: 'signin' | 'signup' }) {
       <main id="main" className="auth__card">
         <h1>{mode === 'signup' ? 'Create your account' : 'Sign in'}</h1>
         <p className="muted">
-          One Google sign-in does both. If this is your first time, your Review Master account is created for you.
+          Access verified evaluations, save products, and create multi-variant comparisons.
         </p>
 
         {error ? <Notice tone="danger">{error}</Notice> : null}
 
+        <form onSubmit={handleEmailSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.25rem' }}>
+          {mode === 'signup' && (
+            <div>
+              <label htmlFor="display_name" className="small muted" style={{ display: 'block', marginBottom: '0.25rem' }}>
+                Display Name (Optional)
+              </label>
+              <input
+                id="display_name"
+                type="text"
+                className="input"
+                style={{ width: '100%' }}
+                placeholder="Your Name"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                disabled={submitting}
+              />
+            </div>
+          )}
+          <div>
+            <label htmlFor="auth_email" className="small muted" style={{ display: 'block', marginBottom: '0.25rem' }}>
+              Email Address
+            </label>
+            <input
+              id="auth_email"
+              type="email"
+              className="input"
+              style={{ width: '100%' }}
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              disabled={submitting}
+            />
+          </div>
+          <div>
+            <label htmlFor="auth_password" className="small muted" style={{ display: 'block', marginBottom: '0.25rem' }}>
+              Password
+            </label>
+            <input
+              id="auth_password"
+              type="password"
+              className="input"
+              style={{ width: '100%' }}
+              placeholder={mode === 'signup' ? 'Minimum 8 characters' : 'Enter password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              disabled={submitting}
+            />
+          </div>
+          <button
+            type="submit"
+            className="btn btn-primary btn-lg btn-block"
+            disabled={submitting}
+            style={{ marginTop: '0.5rem' }}
+          >
+            {submitting ? 'Please wait...' : mode === 'signup' ? 'Create account' : 'Sign in'}
+          </button>
+        </form>
+
+        <div style={{ display: 'flex', alignItems: 'center', margin: '1rem 0', color: 'var(--color-muted)' }}>
+          <div style={{ flex: 1, height: '1px', background: 'var(--color-border)' }} />
+          <span style={{ padding: '0 0.75rem', fontSize: '0.85rem' }}>or</span>
+          <div style={{ flex: 1, height: '1px', background: 'var(--color-border)' }} />
+        </div>
+
         {configured ? (
           <GoogleSignInButton mode={mode} onCredential={onCredential} onError={setError} />
         ) : (
-          <>
-            <Notice tone="warn">
-              Google sign-in is not set up yet. Add <code>VITE_GOOGLE_CLIENT_ID</code> to <code>frontend/.env.local</code> and
-              restart the dev server. Until then you can continue with a demo account.
-            </Notice>
-            <button
-              type="button"
-              className="btn btn-primary btn-lg btn-block"
-              onClick={() => {
-                signInDemo();
-                navigate(from, { replace: true });
-              }}
-            >
-              Continue with a demo account
-            </button>
-          </>
+          <button
+            type="button"
+            className="btn btn-secondary btn-block"
+            onClick={() => {
+              signInDemo();
+              navigate(from, { replace: true });
+            }}
+          >
+            Continue with a demo account
+          </button>
         )}
 
         <p className="small muted">

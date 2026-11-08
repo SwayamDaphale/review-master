@@ -14,6 +14,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin, utc_now
 
 if TYPE_CHECKING:
+    from app.models.auth_session import AuthSession
     from app.models.comparison import ComparisonSession
     from app.models.operation import ImportToken
 
@@ -105,6 +106,11 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     )
     import_tokens: Mapped[list["ImportToken"]] = relationship(
         "ImportToken",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    auth_sessions: Mapped[list["AuthSession"]] = relationship(
+        "AuthSession",
         back_populates="user",
         cascade="all, delete-orphan",
     )

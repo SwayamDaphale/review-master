@@ -9,7 +9,8 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app.core.auth import AuthenticatedUser, get_current_user
+from app.core.auth import AuthenticatedUser, require_permissions
+from app.core.permissions import Permission
 from app.db.dependencies import get_db
 from app.models.evaluation import Evaluation
 from app.services.evaluation_service import EvaluationFoundationService
@@ -58,7 +59,9 @@ class EvaluationResponse(BaseModel):
 def evaluate_variant(
     variant_id: uuid.UUID,
     db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    current_user: Annotated[
+        AuthenticatedUser, Depends(require_permissions(Permission.EVALUATION_MANAGE))
+    ],
 ) -> EvaluationResponse:
     """Trigger deterministic evaluation foundation for a variant."""
     service = EvaluationFoundationService(db)
@@ -83,7 +86,9 @@ def evaluate_variant(
 def get_latest_evaluation(
     variant_id: uuid.UUID,
     db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    current_user: Annotated[
+        AuthenticatedUser, Depends(require_permissions(Permission.EVALUATION_READ))
+    ],
 ) -> EvaluationResponse:
     """Retrieve the latest evaluation for a variant."""
     evaluation = (

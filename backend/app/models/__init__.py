@@ -2,6 +2,7 @@
 
 from app.db.base import Base
 from app.models.attribute import AttributeDefinition, VariantAttributeValue
+from app.models.auth_session import AuthSession
 from app.models.category import Category
 from app.models.comparison import ComparisonItem, ComparisonSession
 from app.models.evaluation import (
@@ -24,6 +25,7 @@ from app.models.variant import Variant, compute_config_hash
 __all__ = [
     "AttributeDefinition",
     "AuditLog",
+    "AuthSession",
     "Base",
     "Category",
     "ComparisonItem",

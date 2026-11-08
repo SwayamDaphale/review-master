@@ -21,7 +21,7 @@ Conventions
 | `users` | `id`, `email citext`, `password_hash`, `email_verified_at`, `display_name`, `status`, `mfa_secret_enc`, `created_at` | `unique(email)`; argon2id hash; `status in (active, suspended, deleted)` |
 | `organizations` | `id`, `name`, `plan`, `status`, `created_at` | A personal user gets a personal org so every row has an `org_id` |
 | `memberships` | `id`, `user_id`, `org_id`, `role` | `unique(user_id, org_id, role)`; `role in (consumer, public_reviewer, expert_reviewer, admin, api_consumer, brand)` |
-| `auth_sessions` | `id`, `user_id`, `refresh_token_hash`, `user_agent`, `ip`, `expires_at`, `revoked_at`, `rotated_from` | Refresh tokens are rotated; reuse of a rotated token revokes the chain |
+| `auth_sessions` | `id`, `user_id`, `refresh_token_hash`, `token_family`, `user_agent`, `ip_address`, `expires_at`, `is_revoked`, `revoked_at`, `rotated_at`, `created_at`, `updated_at` | Implemented in migration 0005. Rotating refresh tokens; reuse of a rotated/revoked token triggers family revocation |
 | `api_keys` | `id`, `org_id`, `name`, `prefix`, `secret_hmac`, `scopes text[]`, `expires_at`, `last_used_at`, `revoked_at`, `created_by` | `unique(prefix)`; secret never stored, only HMAC with pepper |
 | `usage_events` | `id`, `org_id`, `api_key_id`, `endpoint`, `units`, `occurred_at` | Partition by month; written asynchronously |
 

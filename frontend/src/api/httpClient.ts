@@ -18,6 +18,31 @@ import {
   type CatalogProductDetail,
 } from '../types/api';
 import type { ParsedIdentifier } from '../lib/identifiers';
+import { STORAGE_KEYS, readStored } from '../lib/storage';
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  display_name: string | null;
+  roles: string[];
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface AuthTokens {
+  access_token: string;
+  refresh_token?: string;
+  csrf_token?: string;
+  token_type: string;
+  expires_in: number;
+  user: AuthUser;
+}
+
+function getCsrfToken(): string | null {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie.match(/(?:^|;\s*)rm_csrf_token=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
 
 export class HttpClient implements ApiClient {
   private readonly baseUrl: string;
@@ -36,13 +61,28 @@ export class HttpClient implements ApiClient {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
 
+    const session = readStored<{ accessToken?: string } | null>(STORAGE_KEYS.session, null);
+    const authHeaders: Record<string, string> = {};
+    if (session?.accessToken) {
+      authHeaders['Authorization'] = `Bearer ${session.accessToken}`;
+    }
+
+    if (path.startsWith('/api/v1/auth/refresh') || path.startsWith('/api/v1/auth/logout')) {
+      const csrf = getCsrfToken();
+      if (csrf) {
+        authHeaders['X-CSRF-Token'] = csrf;
+      }
+    }
+
     try {
       const response = await fetch(url, {
         ...options,
+        credentials: 'include',
         signal: controller.signal,
         headers: {
           Accept: 'application/json',
           'Content-Type': 'application/json',
+          ...authHeaders,
           ...options.headers,
         },
       });
@@ -309,6 +349,38 @@ export class HttpClient implements ApiClient {
 
   async compare(_variantIds: string[]): Promise<ComparisonResult> {
     throw new ApiError('not_implemented', 'Product comparison service is scheduled for Phase B4.');
+  }
+
+  // --- Authentication Endpoints (Phase B4) ---
+
+  async register(email: string, password: string, displayName?: string): Promise<AuthTokens> {
+    return this.request<AuthTokens>('/api/v1/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ email, password, display_name: displayName }),
+    });
+  }
+
+  async login(email: string, password: string): Promise<AuthTokens> {
+    return this.request<AuthTokens>('/api/v1/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
+  }
+
+  async logout(): Promise<{ status: string; message: string }> {
+    return this.request<{ status: string; message: string }>('/api/v1/auth/logout', {
+      method: 'POST',
+    });
+  }
+
+  async refresh(): Promise<AuthTokens> {
+    return this.request<AuthTokens>('/api/v1/auth/refresh', {
+      method: 'POST',
+    });
+  }
+
+  async getMe(): Promise<AuthUser> {
+    return this.request<AuthUser>('/api/v1/auth/me');
   }
 }
 

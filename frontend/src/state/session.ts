@@ -1,8 +1,10 @@
 export interface Session {
-  provider: 'google' | 'demo';
+  provider: 'local' | 'google' | 'demo';
   sub: string;
   email: string;
   name: string;
   picture?: string;
   signedInAt: string;
+  accessToken?: string;
+  roles?: string[];
 }

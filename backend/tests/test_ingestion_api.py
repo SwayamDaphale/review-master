@@ -8,6 +8,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.core.auth import AuthenticatedUser, get_current_user
+from app.core.permissions import RoleName, get_permissions_for_roles
 from app.db.base import Base
 from app.db.dependencies import get_db
 from app.db.seed import seed_database
@@ -88,7 +90,18 @@ def test_client():
         finally:
             session.close()
 
+    def override_auth():
+        roles = [RoleName.API_CONSUMER.value]
+        return AuthenticatedUser(
+            id="test-ingestion-principal",
+            email="ingestion@test.local",
+            roles=roles,
+            permissions=get_permissions_for_roles(roles),
+            is_authenticated=True,
+        )
+
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_user] = override_auth
     with TestClient(app) as client:
         yield client
     app.dependency_overrides.clear()

@@ -1,6 +1,7 @@
 """Repositories package."""
 
 from app.repositories.attribute_repository import AttributeRepository
+from app.repositories.auth_repository import AuthRepository
 from app.repositories.catalog_repository import CatalogRepository
 from app.repositories.comparison_repository import ComparisonRepository
 from app.repositories.evaluation_repository import EvaluationRepository
@@ -11,6 +12,7 @@ from app.repositories.operations_repository import OperationsRepository
 
 __all__ = [
     "AttributeRepository",
+    "AuthRepository",
     "CatalogRepository",
     "ComparisonRepository",
     "EvaluationRepository",

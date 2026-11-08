@@ -30,9 +30,13 @@ def test_alembic_config_loads():
     script_dir = ScriptDirectory.from_config(cfg)
     heads = script_dir.get_heads()
     assert len(heads) == 1
-    assert heads[0] == "0003_marketplace_and_evidence"
+    assert heads[0] == "0004_complete_database_domains"
 
     # Verify revision chain integrity
+    rev_0004 = script_dir.get_revision("0004_complete_database_domains")
+    assert rev_0004 is not None
+    assert rev_0004.down_revision == "0003_marketplace_and_evidence"
+
     rev_0003 = script_dir.get_revision("0003_marketplace_and_evidence")
     assert rev_0003 is not None
     assert rev_0003.down_revision == "0002_catalog_tables"

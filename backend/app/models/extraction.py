@@ -95,6 +95,12 @@ class IngestionJob(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         nullable=False,
         index=True,
     )
+    job_type: Mapped[str] = mapped_column(
+        String(64),
+        default="ingestion",
+        nullable=False,
+        index=True,
+    )
     status: Mapped[str] = mapped_column(
         String(32),
         default="pending",
@@ -109,6 +115,10 @@ class IngestionJob(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     listing_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("listings.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    payload: Mapped[dict[str, Any] | None] = mapped_column(
+        JSON,
         nullable=True,
     )
     error_message: Mapped[str | None] = mapped_column(

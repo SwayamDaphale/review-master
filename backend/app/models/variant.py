@@ -12,6 +12,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 
 if TYPE_CHECKING:
+    from app.models.attribute import VariantAttributeValue
     from app.models.evaluation import Evaluation
     from app.models.evidence import Evidence
     from app.models.listing import MarketplaceListing
@@ -77,6 +78,11 @@ class Variant(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     )
     evaluations: Mapped[list["Evaluation"]] = relationship(
         "Evaluation",
+        back_populates="variant",
+        cascade="all, delete-orphan",
+    )
+    attribute_values: Mapped[list["VariantAttributeValue"]] = relationship(
+        "VariantAttributeValue",
         back_populates="variant",
         cascade="all, delete-orphan",
     )

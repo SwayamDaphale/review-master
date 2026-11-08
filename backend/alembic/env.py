@@ -18,9 +18,11 @@ target_metadata = Base.metadata
 
 
 def get_url() -> str:
-    """Dynamically fetch the database URL from centralized application settings."""
-    url = settings.DATABASE_URL
-    return url
+    """Fetch database URL, prioritizing explicit Alembic config override if set, else settings."""
+    cfg_url = config.get_main_option("sqlalchemy.url")
+    if cfg_url and cfg_url.strip():
+        return cfg_url
+    return settings.DATABASE_URL
 
 
 def run_migrations_offline() -> None:

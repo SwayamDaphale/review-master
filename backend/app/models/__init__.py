@@ -1,7 +1,9 @@
 """Domain models export package."""
 
 from app.db.base import Base
+from app.models.attribute import AttributeDefinition, VariantAttributeValue
 from app.models.category import Category
+from app.models.comparison import ComparisonItem, ComparisonSession
 from app.models.evaluation import (
     Evaluation,
     EvaluationModel,
@@ -10,22 +12,29 @@ from app.models.evaluation import (
 )
 from app.models.evidence import Evidence, EvidenceVersion
 from app.models.extraction import ExtractionRecord, IngestionJob
+from app.models.identity import Role, User, user_roles
 from app.models.listing import MarketplaceListing
 from app.models.marketplace import Marketplace
 from app.models.offer import PriceRecord, SellerOffer
+from app.models.operation import AuditLog, ImportToken
 from app.models.product import Product
 from app.models.product_family import ProductFamily
 from app.models.variant import Variant, compute_config_hash
 
 __all__ = [
+    "AttributeDefinition",
+    "AuditLog",
     "Base",
     "Category",
+    "ComparisonItem",
+    "ComparisonSession",
     "Evaluation",
     "EvaluationModel",
     "EvaluationModelVersion",
     "Evidence",
     "EvidenceVersion",
     "ExtractionRecord",
+    "ImportToken",
     "IngestionJob",
     "Marketplace",
     "MarketplaceListing",
@@ -33,7 +42,11 @@ __all__ = [
     "PriceRecord",
     "Product",
     "ProductFamily",
+    "Role",
     "SellerOffer",
+    "User",
     "Variant",
+    "VariantAttributeValue",
     "compute_config_hash",
+    "user_roles",
 ]

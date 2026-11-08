@@ -5,7 +5,7 @@ Column-level design for the V1 schema. This is the contract for the first Alembi
 Conventions
 - Primary keys: `uuid` (UUIDv7, time-ordered). Timestamps: `timestamptz`, UTC. Money: `numeric(14,2)` + `currency char(3)`.
 - Every tenant-owned table has `org_id uuid not null` and an RLS policy (§3). Global reference tables (categories, marketplaces, canonical catalog) have no `org_id`.
-- **Append-only tables** (no `UPDATE`/`DELETE` granted to the app role): `evaluations`, `parameter_results`, `evidence_versions`, `price_records`, `audit_log`, `webhook_deliveries`.
+- **Append-only tables** (no `UPDATE`/`DELETE` granted to the app role; enforced via database trigger `prevent_append_only_modification()` on PostgreSQL): `evaluations`, `evidence_versions`, `price_records`, `audit_logs`.
 - **Immutable once published:** `evaluation_model_versions`.
 - Enumerations are PostgreSQL enums or `text` + `CHECK` (decide once; prefer `CHECK` for easier migrations).
 - Soft delete only where a user-facing "delete" exists (feedback, saved items); regulated deletion is handled by the retention job (§5).
@@ -150,3 +150,20 @@ Roles: `app_rw` (API/worker), `app_ro` (reporting), `migrator` (Alembic), `audit
 - Expand → migrate → contract: a migration must be compatible with the previous release's code for one release.
 - Every migration is tested on an empty database and on the previous release schema (CI "migration gate").
 - Seed data (categories, a draft evaluation model per category, roles) lives in versioned seed scripts, not migrations.
+
+---
+
+## 7. Phase B3 Completion Status & Applied Migrations
+
+The database foundation for Phase B3 is fully migrated through Alembic:
+1. `0001_initial_baseline.py`: Baseline initialization.
+2. `0002_catalog_tables.py`: Core taxonomy (`categories`, `product_families`, `products`, `variants`).
+3. `0003_marketplace_and_evidence.py`: Marketplace integrations, listings, offers, price records, evidence records, evidence versions, evaluation models, and deterministic evaluations.
+4. `0004_complete_database_domains.py`:
+   - **Identity Domain:** `users`, `roles`, and `user_roles` association.
+   - **Normalized Attributes:** `attribute_definitions` and `variant_attribute_values` complementing the existing `variants.configuration` JSONB.
+   - **Comparison Domain:** `comparison_sessions` and `comparison_items` supporting both authenticated and anonymous users.
+   - **Operations Domain:** `audit_logs` (append-only) and `import_tokens` (storing SHA-256 token hashes).
+   - **Jobs Reconciliation:** Extended `ingestion_jobs` with `job_type` and arbitrary JSONB `payload` to serve as the unified job tracking engine.
+   - **Append-Only Triggers:** Database-level enforcement on PostgreSQL via `prevent_append_only_modification()` trigger function attached to `price_records`, `evidence_versions`, `evaluations`, and `audit_logs`.
+   - **Recommendation Scope Decision:** Persistence tables for recommendations and criteria are intentionally reserved for a later phase alongside the recommendation engine implementation to prevent premature data modeling.

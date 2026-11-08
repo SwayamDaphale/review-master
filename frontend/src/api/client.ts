@@ -26,6 +26,7 @@ export interface ApiClient {
   getSummaries(variantIds: string[]): Promise<ProductSummary[]>;
   compare(variantIds: string[]): Promise<ComparisonResult>;
   matchExtracted(extracted: ExtractedSmartphone): Promise<MatchResult>;
+  submitExtraction?(payload: unknown): Promise<unknown>;
 
   // Catalog-specific endpoints (Phase B2)
   getCatalogProducts(params?: {

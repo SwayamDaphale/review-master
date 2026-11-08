@@ -12,6 +12,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 
 if TYPE_CHECKING:
+    from app.models.evaluation import Evaluation
+    from app.models.evidence import Evidence
+    from app.models.listing import MarketplaceListing
     from app.models.product import Product
 
 
@@ -62,6 +65,20 @@ class Variant(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     product: Mapped["Product"] = relationship(
         "Product",
         back_populates="variants",
+    )
+    listings: Mapped[list["MarketplaceListing"]] = relationship(
+        "MarketplaceListing",
+        back_populates="variant",
+    )
+    evidence: Mapped[list["Evidence"]] = relationship(
+        "Evidence",
+        back_populates="variant",
+        cascade="all, delete-orphan",
+    )
+    evaluations: Mapped[list["Evaluation"]] = relationship(
+        "Evaluation",
+        back_populates="variant",
+        cascade="all, delete-orphan",
     )
 
     __table_args__ = (

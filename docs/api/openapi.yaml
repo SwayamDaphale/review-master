@@ -263,6 +263,70 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '429':
           $ref: '#/components/responses/RateLimited'
+  /api/v1/extractions/smartphones:
+    post:
+      operationId: submit_smartphone_extraction
+      tags:
+      - Extractions
+      summary: Submit user-initiated Amazon India smartphone extraction
+      responses:
+        '201':
+          description: Created
+        '200':
+          description: OK (idempotent replay)
+        '422':
+          description: Contract validation error
+  /api/v1/extractions/{record_id}:
+    get:
+      operationId: get_extraction_record
+      tags:
+      - Extractions
+      summary: Retrieve extraction snapshot by record ID
+      parameters:
+      - name: record_id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '404':
+          description: Not Found
+  /api/v1/listings/{listing_id}:
+    get:
+      operationId: get_listing
+      tags:
+      - Marketplace Listings
+      summary: Get marketplace listing with active seller offers
+      parameters:
+      - name: listing_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+        '404':
+          description: Not Found
+  /api/v1/products/{product_id}/listings:
+    get:
+      operationId: get_product_listings
+      tags:
+      - Marketplace Listings
+      summary: Get marketplace listings mapped to a canonical product
+      parameters:
+      - name: product_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
   /api/v1/products/identify:
     post:
       operationId: post_api_v1_products_identify
@@ -358,6 +422,38 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '429':
           $ref: '#/components/responses/RateLimited'
+  /api/v1/variants/{variant_id}/evaluations:
+    post:
+      operationId: evaluate_variant
+      tags:
+      - Evaluations
+      summary: Evaluate canonical variant using deterministic engine foundation
+      parameters:
+      - name: variant_id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '201':
+          description: Created
+        '404':
+          description: Not Found
+  /api/v1/variants/{variant_id}/evaluations/latest:
+    get:
+      operationId: get_latest_evaluation
+      tags:
+      - Evaluations
+      summary: Get latest evaluation outcome for a canonical variant
+      parameters:
+      - name: variant_id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: OK
+        '404':
+          description: Not Found
   /api/v1/variants/{variant_id}/evaluation:
     get:
       operationId: get_api_v1_variants_variant_id_evaluation
@@ -447,6 +543,38 @@ paths:
         '429':
           $ref: '#/components/responses/RateLimited'
   /api/v1/evidence:
+    get:
+      operationId: get_api_v1_evidence
+      tags:
+      - Evidence
+      summary: Query evidence records and provenance
+      parameters:
+      - name: variant_id
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: product_id
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: parameter_key
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 50
+      responses:
+        '200':
+          description: OK
     post:
       operationId: post_api_v1_evidence
       tags:

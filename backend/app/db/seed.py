@@ -1,7 +1,8 @@
 """Idempotent database seeding script for development and integration testing.
 
-Populates categories (smartphones, laptops, external SSDs) and reference catalog
-products/variants without inventing fake evaluation scores, prices, or evidence.
+Populates categories (smartphones, laptops, external SSDs), marketplaces (Amazon India),
+draft evaluation models, and reference catalog products/variants without inventing
+fake evaluation scores, prices, or evidence.
 """
 
 import logging
@@ -12,6 +13,8 @@ from sqlalchemy.orm import Session
 
 from app.db.session import SessionLocal
 from app.models.category import Category
+from app.models.evaluation import EvaluationModel, EvaluationModelVersion
+from app.models.marketplace import Marketplace
 from app.models.product import Product
 from app.models.product_family import ProductFamily
 from app.models.variant import Variant, compute_config_hash
@@ -58,6 +61,19 @@ SEED_CATEGORIES: list[dict[str, Any]] = [
         },
         "status": "active",
     },
+]
+
+SEED_MARKETPLACES: list[dict[str, Any]] = [
+    {
+        "key": "amazon.in",
+        "name": "Amazon India",
+        "adapter": "amazon_in_scraper_v1",
+        "status": "active",
+        "permitted_sources": {
+            "allowed_domains": ["amazon.in", "www.amazon.in"],
+            "category_scopes": ["smartphone"],
+        },
+    }
 ]
 
 SEED_CATALOG: list[dict[str, Any]] = [
@@ -158,10 +174,83 @@ SEED_CATALOG: list[dict[str, Any]] = [
     },
 ]
 
+SMARTPHONE_EVAL_DEFINITION: dict[str, Any] = {
+    "model": "smartphone",
+    "version": "1-draft",
+    "status": "draft",
+    "quality_parameters": [
+        {
+            "key": "performance",
+            "name": "Performance",
+            "weight": 0.25,
+            "critical": True,
+            "inputs": ["chipset", "ram_gb", "storage_type", "benchmark_score"],
+            "scoring_rule": {"type": "linear_range"},
+            "evidence_requirements": {"min_trust_tier_to_score": 2},
+        },
+        {
+            "key": "battery_charging",
+            "name": "Battery and charging",
+            "weight": 0.20,
+            "critical": True,
+            "inputs": [
+                "battery_capacity_mah",
+                "charging_wattage",
+                "tested_battery_life_hours",
+            ],
+            "scoring_rule": {"type": "linear_range"},
+            "evidence_requirements": {"min_trust_tier_to_score": 2},
+        },
+        {
+            "key": "camera",
+            "name": "Camera",
+            "weight": 0.20,
+            "critical": True,
+            "inputs": ["main_sensor_mp", "camera_test_score"],
+            "scoring_rule": {"type": "linear_range"},
+            "evidence_requirements": {"min_trust_tier_to_score": 2},
+        },
+        {
+            "key": "display",
+            "name": "Display",
+            "weight": 0.15,
+            "critical": False,
+            "inputs": ["panel_type", "display_size_inches", "refresh_rate_hz"],
+            "scoring_rule": {"type": "piecewise"},
+            "evidence_requirements": {"min_trust_tier_to_score": 2},
+        },
+        {
+            "key": "software_updates",
+            "name": "Software and updates",
+            "weight": 0.10,
+            "critical": False,
+            "inputs": ["operating_system"],
+            "scoring_rule": {"type": "ordinal"},
+            "evidence_requirements": {"min_trust_tier_to_score": 2},
+        },
+        {
+            "key": "connectivity_features",
+            "name": "Connectivity and features",
+            "weight": 0.10,
+            "critical": False,
+            "inputs": ["supports_5g"],
+            "scoring_rule": {"type": "ordinal"},
+            "evidence_requirements": {"min_trust_tier_to_score": 2},
+        },
+    ],
+}
+
 
 def seed_database(db: Session) -> dict[str, int]:
-    """Execute idempotent seed operations on categories, families, products, and variants."""
-    counts = {"categories": 0, "families": 0, "products": 0, "variants": 0}
+    """Execute idempotent seed operations on categories, families, products, variants, and marketplaces."""
+    counts = {
+        "categories": 0,
+        "marketplaces": 0,
+        "families": 0,
+        "products": 0,
+        "variants": 0,
+        "evaluation_models": 0,
+    }
 
     # 1. Categories
     category_map: dict[str, Category] = {}
@@ -182,7 +271,24 @@ def seed_database(db: Session) -> dict[str, int]:
             counts["categories"] += 1
         category_map[cat.key] = cat
 
-    # 2. Families, Products, Variants
+    # 2. Marketplaces
+    for mkt_data in SEED_MARKETPLACES:
+        mkt = db.execute(
+            select(Marketplace).where(Marketplace.key == mkt_data["key"])
+        ).scalar_one_or_none()
+        if not mkt:
+            mkt = Marketplace(
+                key=mkt_data["key"],
+                name=mkt_data["name"],
+                adapter=mkt_data["adapter"],
+                status=mkt_data["status"],
+                permitted_sources=mkt_data["permitted_sources"],
+            )
+            db.add(mkt)
+            db.flush()
+            counts["marketplaces"] += 1
+
+    # 3. Families, Products, Variants
     for entry in SEED_CATALOG:
         cat = category_map[entry["category_key"]]
 
@@ -246,13 +352,49 @@ def seed_database(db: Session) -> dict[str, int]:
                 db.flush()
                 counts["variants"] += 1
 
+    # 4. Evaluation model for smartphone
+    phone_cat = category_map.get("smartphone")
+    if phone_cat:
+        eval_model = db.execute(
+            select(EvaluationModel).where(
+                EvaluationModel.category_id == phone_cat.id,
+                EvaluationModel.name == "smartphone",
+            )
+        ).scalar_one_or_none()
+        if not eval_model:
+            eval_model = EvaluationModel(
+                category_id=phone_cat.id,
+                name="smartphone",
+            )
+            db.add(eval_model)
+            db.flush()
+            counts["evaluation_models"] += 1
+
+        model_version = db.execute(
+            select(EvaluationModelVersion).where(
+                EvaluationModelVersion.model_id == eval_model.id,
+                EvaluationModelVersion.version == "1-draft",
+            )
+        ).scalar_one_or_none()
+        if not model_version:
+            model_version = EvaluationModelVersion(
+                model_id=eval_model.id,
+                version="1-draft",
+                status="draft",
+                definition=SMARTPHONE_EVAL_DEFINITION,
+            )
+            db.add(model_version)
+            db.flush()
+
     db.commit()
     logger.info(
-        "Seeding completed. New rows added: categories=%d, families=%d, products=%d, variants=%d",
+        "Seeding completed. New rows added: categories=%d, marketplaces=%d, families=%d, products=%d, variants=%d, models=%d",
         counts["categories"],
+        counts["marketplaces"],
         counts["families"],
         counts["products"],
         counts["variants"],
+        counts["evaluation_models"],
     )
     return counts
 

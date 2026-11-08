@@ -108,6 +108,99 @@ describe('HttpClient', () => {
     expect(result.variants[0].label).toBe('Apple iPhone 16 Pro 128GB');
   });
 
+  it('submits extraction snapshot to /api/v1/extractions/smartphones', async () => {
+    const client = new HttpClient('http://localhost:8000');
+    const mockResponse = {
+      status: 'success',
+      record_id: 'rec-123',
+      listing_id: 'list-456',
+      match_state: 'confirmed',
+    };
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: async () => mockResponse,
+    });
+    globalThis.fetch = mockFetch;
+
+    const payload = { schema_version: '1.0' };
+    const res = await client.submitExtraction(payload);
+    expect(res).toEqual(mockResponse);
+    expect(mockFetch).toHaveBeenCalledWith(
+      'http://localhost:8000/api/v1/extractions/smartphones',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
+    );
+  });
+
+  it('matches extracted smartphone against canonical catalog', async () => {
+    const client = new HttpClient('http://localhost:8000');
+    const mockCatalog = {
+      items: [
+        {
+          id: 'prod-s24',
+          name: 'Samsung Galaxy S24 Ultra',
+          manufacturer: 'Samsung',
+          category: 'smartphone',
+        },
+      ],
+      next_cursor: null,
+    };
+    const mockDetail = {
+      product: {
+        id: 'prod-s24',
+        name: 'Samsung Galaxy S24 Ultra',
+        manufacturer: 'Samsung',
+        category: 'smartphone',
+      },
+      variants: [
+        {
+          id: 'var-256',
+          product_id: 'prod-s24',
+          configuration: { ram_gb: 12, storage_gb: 256 },
+          label: 'Samsung Galaxy S24 Ultra 256GB',
+        },
+      ],
+    };
+
+    globalThis.fetch = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockCatalog,
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockDetail,
+      });
+
+    const matchResult = await client.matchExtracted({
+      category: 'smartphone',
+      brand: 'Samsung',
+      model_name: 'Galaxy S24 Ultra',
+      model_number: null,
+      ram_gb: 12,
+      storage_gb: 256,
+      display_size_inches: 6.8,
+      battery_capacity_mah: 5000,
+      operating_system: 'Android 14',
+      processor: 'Snapdragon 8 Gen 3',
+      supports_5g: true,
+      price_amount: 129999,
+      currency: 'INR',
+      rating: 4.5,
+      review_count: 500,
+      availability: 'in_stock',
+    });
+
+    expect(matchResult.match_state).toBe('confirmed');
+    expect(matchResult.candidates).toHaveLength(1);
+    expect(matchResult.candidates[0].variant.id).toBe('var-256');
+  });
+
   it('throws ApiError with not_found on HTTP 404', async () => {
     const client = new HttpClient('http://localhost:8000');
     globalThis.fetch = vi.fn().mockResolvedValue({
@@ -162,4 +255,3 @@ describe('HttpClient', () => {
     });
   });
 });
-

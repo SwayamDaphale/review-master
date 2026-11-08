@@ -60,7 +60,9 @@ export class HttpClient implements ApiClient {
         let detail = response.statusText;
         try {
           const body = await response.json();
-          if (body?.detail) detail = body.detail;
+          if (body?.detail) {
+            detail = typeof body.detail === 'string' ? body.detail : JSON.stringify(body.detail);
+          }
         } catch {
           // ignore json parse error on error body
         }
@@ -198,14 +200,103 @@ export class HttpClient implements ApiClient {
     }));
   }
 
+  // --- Real Extraction & Evidence Endpoints (Phase B3) ---
+
+  async submitExtraction(payload: unknown): Promise<unknown> {
+    return this.request<unknown>('/api/v1/extractions/smartphones', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async matchExtracted(extracted: ExtractedSmartphone): Promise<MatchResult> {
+    const searchTarget = extracted.model_name || extracted.brand || '';
+    const catalog = await this.getCatalogProducts({ q: searchTarget, category: 'smartphone' });
+
+    if (catalog.items.length === 0) {
+      return {
+        match_state: 'unmatched',
+        candidates: [],
+        reason: `No canonical product found matching "${searchTarget}".`,
+      };
+    }
+
+    const exactProduct =
+      catalog.items.find(
+        (item) =>
+          item.name.toLowerCase() === (extracted.model_name || '').toLowerCase() ||
+          item.name.toLowerCase().includes((extracted.model_name || '').toLowerCase()),
+      ) || catalog.items[0];
+
+    const detail = await this.getCatalogProductDetail(exactProduct.id);
+
+    const matchingVariants = detail.variants.filter((v) => {
+      const cfg = v.configuration as Record<string, unknown>;
+      const ramMatches =
+        extracted.ram_gb === null || cfg.ram_gb === undefined || Number(cfg.ram_gb) === Number(extracted.ram_gb);
+      const storageMatches =
+        extracted.storage_gb === null ||
+        cfg.storage_gb === undefined ||
+        Number(cfg.storage_gb) === Number(extracted.storage_gb);
+      return ramMatches && storageMatches;
+    });
+
+    const isConfirmed = matchingVariants.length === 1 && extracted.storage_gb !== null;
+    const matchState = isConfirmed ? 'confirmed' : matchingVariants.length > 0 ? 'probable' : 'unmatched';
+
+    const candidates: ProductSummary[] = (matchingVariants.length > 0 ? matchingVariants : detail.variants.slice(0, 1)).map(
+      (v) => ({
+        product: {
+          id: detail.product.id,
+          name: detail.product.name,
+          manufacturer: detail.product.manufacturer,
+          model: detail.product.name,
+          category: detail.product.category as Category,
+          mpn: detail.product.mpn ?? undefined,
+        },
+        variant: {
+          id: v.id,
+          product_id: v.product_id,
+          label: v.label,
+          configuration: v.configuration as Record<string, string | number>,
+        },
+        evaluation: {
+          evaluation_id: `none-${v.id}`,
+          variant_id: v.id,
+          model: { name: 'Review Master V1', version: 'pending' },
+          overall_score: null,
+          confidence: {
+            state: 'insufficient_evidence',
+            score: 0,
+            coverage: 0,
+            reasons: ['Catalog item not yet evaluated'],
+          },
+          parameters: [],
+          limitations: ['Evaluation pending laboratory test evidence'],
+          created_at: new Date().toISOString(),
+        },
+        price: extracted.price_amount !== null ? extracted.price_amount : null,
+        match_state: matchState,
+      }),
+    );
+
+    return {
+      match_state: matchState,
+      candidates,
+      reason: isConfirmed
+        ? `Confirmed match for ${detail.product.name} (${matchingVariants[0].label}).`
+        : `Identified product ${detail.product.name}, but exact hardware configuration requires confirmation.`,
+    };
+  }
+
   // --- Endpoints Deferred to Subsequent Phases ---
 
   async lookupIdentifier(_parsed: ParsedIdentifier): Promise<MatchResult> {
-    throw new ApiError('not_implemented', 'Marketplace listing identifier lookup is scheduled for Phase B3.');
+    throw new ApiError('not_implemented', 'Marketplace listing identifier lookup is scheduled for Phase B4.');
   }
 
   async getVariantView(_variantId: string): Promise<VariantView> {
-    throw new ApiError('not_implemented', 'Variant evaluation view is scheduled for Phase B3/B4.');
+    throw new ApiError('not_implemented', 'Variant evaluation view is scheduled for Phase B4.');
   }
 
   async getPriceHistory(_variantId: string): Promise<PriceHistory> {
@@ -213,17 +304,12 @@ export class HttpClient implements ApiClient {
   }
 
   async getSummaries(_variantIds: string[]): Promise<ProductSummary[]> {
-    throw new ApiError('not_implemented', 'Batch evaluated summaries are scheduled for Phase B3.');
+    throw new ApiError('not_implemented', 'Batch evaluated summaries are scheduled for Phase B4.');
   }
 
   async compare(_variantIds: string[]): Promise<ComparisonResult> {
-    throw new ApiError('not_implemented', 'Product comparison service is scheduled for Phase B3.');
-  }
-
-  async matchExtracted(_extracted: ExtractedSmartphone): Promise<MatchResult> {
-    throw new ApiError('not_implemented', 'Evidence matching engine is scheduled for Phase B3.');
+    throw new ApiError('not_implemented', 'Product comparison service is scheduled for Phase B4.');
   }
 }
 
 export const httpClient = new HttpClient();
-

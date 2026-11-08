@@ -11,6 +11,8 @@ from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 
 if TYPE_CHECKING:
     from app.models.category import Category
+    from app.models.evidence import Evidence
+    from app.models.listing import MarketplaceListing
     from app.models.product_family import ProductFamily
     from app.models.variant import Variant
 
@@ -72,6 +74,15 @@ class Product(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     )
     variants: Mapped[list["Variant"]] = relationship(
         "Variant",
+        back_populates="product",
+        cascade="all, delete-orphan",
+    )
+    listings: Mapped[list["MarketplaceListing"]] = relationship(
+        "MarketplaceListing",
+        back_populates="product",
+    )
+    evidence: Mapped[list["Evidence"]] = relationship(
+        "Evidence",
         back_populates="product",
         cascade="all, delete-orphan",
     )

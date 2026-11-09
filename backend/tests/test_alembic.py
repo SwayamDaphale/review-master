@@ -30,9 +30,17 @@ def test_alembic_config_loads():
     script_dir = ScriptDirectory.from_config(cfg)
     heads = script_dir.get_heads()
     assert len(heads) == 1
-    assert heads[0] == "0005_authentication_sessions"
+    assert heads[0] == "0007_evidence_and_ingestion"
 
     # Verify revision chain integrity
+    rev_0007 = script_dir.get_revision("0007_evidence_and_ingestion")
+    assert rev_0007 is not None
+    assert rev_0007.down_revision == "0006_catalog_and_review_intel"
+
+    rev_0006 = script_dir.get_revision("0006_catalog_and_review_intel")
+    assert rev_0006 is not None
+    assert rev_0006.down_revision == "0005_authentication_sessions"
+
     rev_0005 = script_dir.get_revision("0005_authentication_sessions")
     assert rev_0005 is not None
     assert rev_0005.down_revision == "0004_complete_database_domains"

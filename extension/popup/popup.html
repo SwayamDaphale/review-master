@@ -21,12 +21,25 @@
 
   <div class="actions">
     <button id="extractBtn" class="primary-btn">Extract Smartphone Data</button>
+    <button id="submitBtn" class="primary-btn hidden" disabled>Submit to Review Master</button>
     <button id="openWebBtn" class="primary-btn hidden" disabled>Open in Review Master Web</button>
     <button id="downloadBtn" class="secondary-btn" disabled>Download Validated JSON</button>
   </div>
 
   <!-- Messages & Warnings -->
   <div id="messageContainer" class="message-container hidden"></div>
+
+  <!-- Submission Status -->
+  <div id="submitStatusContainer" class="summary-card hidden">
+    <div class="summary-row">
+      <span class="label">Backend Ingestion Status:</span>
+      <span id="submitStatusText" class="value strong">-</span>
+    </div>
+    <div class="summary-row">
+      <span class="label">Ingestion Job ID:</span>
+      <span id="jobIdText" class="value highlight">-</span>
+    </div>
+  </div>
 
   <!-- Results Preview -->
   <div id="resultsContainer" class="results-container hidden">

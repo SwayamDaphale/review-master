@@ -201,12 +201,16 @@ services:
     build: *backend-build
     image: review-master-backend:dev
     container_name: rm-worker
-    profiles: ["celery"]
     restart: unless-stopped
     command: ["celery", "-A", "app.worker.celery_app", "worker", "--loglevel=info"]
     environment: *backend-env
     volumes:
       - ./backend:/app
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.worker.celery_app inspect ping || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 3
     depends_on:
       migrate:
         condition: service_completed_successfully

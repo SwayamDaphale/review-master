@@ -426,6 +426,66 @@ def seed_database(db: Session) -> dict[str, int]:
             db.add(model_version)
             db.flush()
 
+    # 5. Core attribute definitions & variant attribute values
+    from app.repositories.attribute_repository import AttributeRepository
+
+    CORE_ATTRIBUTES: list[dict[str, Any]] = [
+        {"key": "ram", "name": "RAM", "data_type": "numeric", "unit": "GB", "canonical_unit": "GB", "validation_rules": {"min": 1, "max": 128}, "is_required": True, "is_filterable": True, "is_searchable": True},
+        {"key": "storage", "name": "Storage", "data_type": "numeric", "unit": "GB", "canonical_unit": "GB", "validation_rules": {"min": 16, "max": 4096}, "is_required": True, "is_filterable": True, "is_searchable": True},
+        {"key": "display_size", "name": "Display Size", "data_type": "numeric", "unit": "inch", "canonical_unit": "inch", "validation_rules": {"min": 4.0, "max": 12.0}, "is_required": False, "is_filterable": True, "is_searchable": False},
+        {"key": "battery", "name": "Battery Capacity", "data_type": "numeric", "unit": "mAh", "canonical_unit": "mAh", "validation_rules": {"min": 1000, "max": 10000}, "is_required": False, "is_filterable": True, "is_searchable": False},
+        {"key": "color", "name": "Color", "data_type": "string", "unit": None, "canonical_unit": None, "validation_rules": {}, "is_required": False, "is_filterable": True, "is_searchable": True},
+    ]
+
+    attr_map = {}
+    for attr_spec in CORE_ATTRIBUTES:
+        existing_attr = AttributeRepository.get_definition_by_key(db, attr_spec["key"])
+        if not existing_attr:
+            existing_attr = AttributeRepository.create_definition(
+                db,
+                key=attr_spec["key"],
+                name=attr_spec["name"],
+                category_id=phone_cat.id if phone_cat else None,
+                data_type=attr_spec["data_type"],
+                unit=attr_spec["unit"],
+                canonical_unit=attr_spec["canonical_unit"],
+                validation_rules=attr_spec["validation_rules"],
+                is_required=attr_spec["is_required"],
+                is_filterable=attr_spec["is_filterable"],
+                is_searchable=attr_spec["is_searchable"],
+            )
+        attr_map[attr_spec["key"]] = existing_attr
+
+    # Populate variant attribute values from configuration dictionaries
+    all_variants = db.execute(select(Variant)).scalars().all()
+    for var in all_variants:
+        cfg = var.configuration or {}
+        if "ram_gb" in cfg and "ram" in attr_map:
+            AttributeRepository.set_variant_value(
+                db,
+                variant_id=var.id,
+                attribute_id=attr_map["ram"].id,
+                value_numeric=cfg["ram_gb"],
+                original_unit="GB",
+                canonical_unit="GB",
+            )
+        if "storage_gb" in cfg and "storage" in attr_map:
+            AttributeRepository.set_variant_value(
+                db,
+                variant_id=var.id,
+                attribute_id=attr_map["storage"].id,
+                value_numeric=cfg["storage_gb"],
+                original_unit="GB",
+                canonical_unit="GB",
+            )
+        if "color" in cfg and "color" in attr_map:
+            AttributeRepository.set_variant_value(
+                db,
+                variant_id=var.id,
+                attribute_id=attr_map["color"].id,
+                value_text=str(cfg["color"]),
+            )
+
     db.commit()
     logger.info(
         "Seeding completed. New rows added: roles=%d, categories=%d, marketplaces=%d, families=%d, products=%d, variants=%d, models=%d",

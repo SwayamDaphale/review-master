@@ -7,8 +7,12 @@ let currentRecord = null;
 const extractBtn = document.getElementById('extractBtn');
 const downloadBtn = document.getElementById('downloadBtn');
 const openWebBtn = document.getElementById('openWebBtn');
+const submitBtn = document.getElementById('submitBtn');
 const statusIndicator = document.getElementById('statusIndicator');
 const messageContainer = document.getElementById('messageContainer');
+const submitStatusContainer = document.getElementById('submitStatusContainer');
+const submitStatusText = document.getElementById('submitStatusText');
+const jobIdText = document.getElementById('jobIdText');
 const resultsContainer = document.getElementById('resultsContainer');
 const validationBadge = document.getElementById('validationBadge');
 
@@ -67,6 +71,13 @@ extractBtn.addEventListener('click', async () => {
   if (openWebBtn) {
     openWebBtn.disabled = true;
     openWebBtn.classList.add('hidden');
+  }
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.classList.add('hidden');
+  }
+  if (submitStatusContainer) {
+    submitStatusContainer.classList.add('hidden');
   }
   updateStatus('extracting', 'Extracting...');
 
@@ -237,6 +248,91 @@ function renderResults(record) {
     openWebBtn.disabled = false;
     openWebBtn.classList.remove('hidden');
   }
+  if (submitBtn) {
+    submitBtn.disabled = false;
+    submitBtn.classList.remove('hidden');
+  }
+}
+
+// Backend API configuration for Review Master ingestion pipeline
+const API_BASE_URL = 'http://localhost:8000';
+
+if (submitBtn) {
+  submitBtn.addEventListener('click', async () => {
+    if (!currentRecord) return;
+    clearMessage();
+    submitBtn.disabled = true;
+    if (submitStatusContainer) {
+      submitStatusContainer.classList.remove('hidden');
+      submitStatusText.textContent = 'Submitting to Review Master backend...';
+      jobIdText.textContent = 'Allocating...';
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/listings/ingest`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(currentRecord),
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        const errorMsg = data && data.detail
+          ? (typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail))
+          : `HTTP ${response.status} ${response.statusText}`;
+        showMessage(`Backend submission rejected: ${errorMsg}`, 'error');
+        if (submitStatusText) {
+          submitStatusText.textContent = `Rejected (${response.status})`;
+        }
+        submitBtn.disabled = false;
+        return;
+      }
+
+      if (submitStatusText) {
+        submitStatusText.textContent = data.is_duplicate
+          ? 'Accepted (Duplicate / Idempotent Cached)'
+          : 'Accepted (Processing Scheduled)';
+      }
+      if (jobIdText) {
+        jobIdText.textContent = data.job_id || 'N/A';
+      }
+
+      // Poll for job completion if job_id exists
+      if (data.job_id) {
+        let pollCount = 0;
+        const maxPolls = 15;
+        const pollInterval = setInterval(async () => {
+          pollCount++;
+          try {
+            const statusRes = await fetch(`${API_BASE_URL}/api/v1/ingestion-jobs/${data.job_id}`);
+            if (statusRes.ok) {
+              const statusData = await statusRes.json();
+              if (submitStatusText) {
+                submitStatusText.textContent = `Job ${statusData.status.toUpperCase()}`;
+              }
+              if (statusData.status === 'completed' || statusData.status === 'failed') {
+                clearInterval(pollInterval);
+              }
+            }
+          } catch (pollErr) {
+            // Ignore polling errors
+          }
+          if (pollCount >= maxPolls) {
+            clearInterval(pollInterval);
+          }
+        }, 2000);
+      }
+    } catch (netErr) {
+      showMessage(`Network error connecting to backend: ${netErr.message || 'Connection refused at localhost:8000'}`, 'error');
+      if (submitStatusText) {
+        submitStatusText.textContent = 'Network Connection Failed';
+      }
+      submitBtn.disabled = false;
+    }
+  });
 }
 
 // Open in Review Master Web app handler

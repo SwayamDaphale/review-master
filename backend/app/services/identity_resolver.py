@@ -15,6 +15,7 @@ from typing import Literal
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
+from app.contracts.extraction.canonical import CanonicalInternalExtraction
 from app.models.listing import MarketplaceListing
 from app.models.product import Product
 from app.models.variant import Variant
@@ -43,6 +44,47 @@ class IdentityResolver:
 
     def __init__(self, db: Session):
         self.db = db
+
+    def resolve_canonical(
+        self,
+        marketplace_id: uuid.UUID,
+        asin: str | None,
+        canonical: CanonicalInternalExtraction,
+    ) -> ResolutionResult:
+        """Resolve canonical identity from a CanonicalInternalExtraction object."""
+        # Convert canonical data into NormalizedSmartphone representation for resolver engine
+        ram_val = canonical.get_attribute_value("ram")
+        storage_val = canonical.get_attribute_value("storage")
+        display_val = canonical.get_attribute_value("display_size")
+        battery_val = canonical.get_attribute_value("battery")
+        os_val = canonical.get_attribute_value("operating_system")
+        processor_val = canonical.get_attribute_value("processor")
+        fiveg_val = canonical.get_attribute_value("supports_5g")
+
+        mock_norm = NormalizedSmartphone(
+            category="smartphone",
+            brand=canonical.normalized_brand,
+            model_name=canonical.normalized_model_name,
+            model_number=canonical.normalized_model_number,
+            ram_gb=float(ram_val) if ram_val is not None else None,
+            storage_gb=float(storage_val) if storage_val is not None else None,
+            display_size_inches=float(display_val) if display_val is not None else None,
+            battery_capacity_mah=int(battery_val) if battery_val is not None else None,
+            operating_system=str(os_val) if os_val is not None else None,
+            processor=str(processor_val) if processor_val is not None else None,
+            supports_5g=bool(fiveg_val) if fiveg_val is not None else None,
+            price_amount=float(canonical.price_amount) if canonical.price_amount is not None else None,
+            currency=canonical.currency or "INR",  # type: ignore[arg-type]
+            rating=float(canonical.rating) if canonical.rating is not None else None,
+            review_count=canonical.review_count,
+            availability=canonical.availability,  # type: ignore[arg-type]
+        )
+        return self.resolve_smartphone(
+            marketplace_id=marketplace_id,
+            asin=asin,
+            normalized=mock_norm,
+            raw_title=canonical.raw_title,
+        )
 
     def resolve_smartphone(
         self,

@@ -25,6 +25,7 @@ from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 
 if TYPE_CHECKING:
     from app.models.category import Category
+    from app.models.evidence import Evidence
     from app.models.variant import Variant
 
 
@@ -56,6 +57,25 @@ class AttributeDefinition(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     unit: Mapped[str | None] = mapped_column(
         String(32),
         nullable=True,  # "GB", "TB", "inches", "mAh"
+    )
+    canonical_unit: Mapped[str | None] = mapped_column(
+        String(32),
+        nullable=True,
+    )
+    validation_rules: Mapped[dict[str, Any]] = mapped_column(
+        JSON,
+        default=dict,
+        nullable=False,
+    )
+    is_required: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+    )
+    status: Mapped[str] = mapped_column(
+        String(32),
+        default="active",
+        nullable=False,
     )
     is_filterable: Mapped[bool] = mapped_column(
         Boolean,
@@ -125,6 +145,29 @@ class VariantAttributeValue(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         Text,
         nullable=True,
     )
+    original_unit: Mapped[str | None] = mapped_column(
+        String(32),
+        nullable=True,
+    )
+    canonical_unit: Mapped[str | None] = mapped_column(
+        String(32),
+        nullable=True,
+    )
+    confidence: Mapped[Decimal | None] = mapped_column(
+        Numeric(5, 4),
+        nullable=True,
+    )
+    validation_status: Mapped[str] = mapped_column(
+        String(32),
+        default="valid",
+        nullable=False,
+    )
+    evidence_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("evidence.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
 
     # Relationships
     variant: Mapped["Variant"] = relationship(
@@ -136,6 +179,7 @@ class VariantAttributeValue(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         back_populates="values",
         lazy="joined",
     )
+    evidence: Mapped["Evidence | None"] = relationship("Evidence")
 
     __table_args__ = (
         UniqueConstraint(

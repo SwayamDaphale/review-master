@@ -1,0 +1,532 @@
+{
+  "$defs": {
+    "GeneralizedAttributeValue": {
+      "additionalProperties": false,
+      "description": "Category-independent typed attribute extracted from evidence.",
+      "properties": {
+        "attribute_key": {
+          "description": "Registered attribute key",
+          "minLength": 1,
+          "title": "Attribute Key",
+          "type": "string"
+        },
+        "value_type": {
+          "default": "string",
+          "enum": [
+            "numeric",
+            "string",
+            "boolean",
+            "json"
+          ],
+          "title": "Value Type",
+          "type": "string"
+        },
+        "value": {
+          "description": "Extracted value matching value_type",
+          "title": "Value"
+        },
+        "original_value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Original Value"
+        },
+        "original_unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Original Unit"
+        },
+        "normalized_value": {
+          "default": null,
+          "title": "Normalized Value"
+        },
+        "normalized_unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Normalized Unit"
+        },
+        "confidence": {
+          "default": 1.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "source_reference": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Reference"
+        }
+      },
+      "required": [
+        "attribute_key",
+        "value"
+      ],
+      "title": "GeneralizedAttributeValue",
+      "type": "object"
+    },
+    "GeneralizedContractMetadata": {
+      "additionalProperties": false,
+      "description": "Contract versioning and record identity metadata.",
+      "properties": {
+        "contract_type": {
+          "const": "generalized_extraction",
+          "default": "generalized_extraction",
+          "title": "Contract Type",
+          "type": "string"
+        },
+        "schema_version": {
+          "default": "1.0",
+          "enum": [
+            "1.0",
+            "1.0.0"
+          ],
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "record_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Client-generated unique UUID",
+          "title": "Record Id"
+        },
+        "captured_at": {
+          "description": "Capture timestamp in ISO-8601",
+          "format": "date-time",
+          "title": "Captured At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "captured_at"
+      ],
+      "title": "GeneralizedContractMetadata",
+      "type": "object"
+    },
+    "GeneralizedExtractedData": {
+      "additionalProperties": false,
+      "description": "Extracted commercial data and typed attribute collection.",
+      "properties": {
+        "price_amount": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Price Amount"
+        },
+        "currency": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": "INR",
+          "title": "Currency"
+        },
+        "rating": {
+          "anyOf": [
+            {
+              "maximum": 5,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rating"
+        },
+        "review_count": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Review Count"
+        },
+        "availability": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Availability"
+        },
+        "attributes": {
+          "items": {
+            "$ref": "#/$defs/GeneralizedAttributeValue"
+          },
+          "title": "Attributes",
+          "type": "array"
+        }
+      },
+      "title": "GeneralizedExtractedData",
+      "type": "object"
+    },
+    "GeneralizedProductContext": {
+      "additionalProperties": false,
+      "description": "Contextual product hints for catalog identity resolution.",
+      "properties": {
+        "category": {
+          "description": "Target product category, e.g. smartphone, laptop",
+          "minLength": 2,
+          "title": "Category",
+          "type": "string"
+        },
+        "external_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Marketplace identifier (e.g. ASIN, SKU)",
+          "title": "External Id"
+        },
+        "brand_hint": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Brand Hint"
+        },
+        "model_hint": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model Hint"
+        },
+        "variant_hint": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Variant Hint"
+        }
+      },
+      "required": [
+        "category"
+      ],
+      "title": "GeneralizedProductContext",
+      "type": "object"
+    },
+    "GeneralizedRawEvidence": {
+      "additionalProperties": false,
+      "description": "Verbatim un-normalized evidence captured from the marketplace page.",
+      "properties": {
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        },
+        "raw_text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Raw Text"
+        },
+        "raw_price_text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Raw Price Text"
+        },
+        "raw_rating_text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Raw Rating Text"
+        },
+        "raw_review_count_text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Raw Review Count Text"
+        },
+        "raw_availability_text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Raw Availability Text"
+        },
+        "specifications": {
+          "items": {
+            "$ref": "#/$defs/GeneralizedSpecificationItem"
+          },
+          "title": "Specifications",
+          "type": "array"
+        }
+      },
+      "title": "GeneralizedRawEvidence",
+      "type": "object"
+    },
+    "GeneralizedSourceMetadata": {
+      "additionalProperties": false,
+      "description": "Origin, client, and page location provenance.",
+      "properties": {
+        "marketplace": {
+          "description": "Marketplace identifier, e.g. amazon.in",
+          "title": "Marketplace",
+          "type": "string"
+        },
+        "page_type": {
+          "default": "product_detail",
+          "description": "Page type, e.g. product_detail",
+          "title": "Page Type",
+          "type": "string"
+        },
+        "product_url": {
+          "description": "Normalized product listing URL",
+          "title": "Product Url",
+          "type": "string"
+        },
+        "extraction_method": {
+          "default": "browser_extension_user_initiated",
+          "description": "Method used for extraction",
+          "title": "Extraction Method",
+          "type": "string"
+        },
+        "extension_version": {
+          "description": "Extension/client release version",
+          "minLength": 1,
+          "title": "Extension Version",
+          "type": "string"
+        },
+        "page_title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "DOM title of the extracted page",
+          "title": "Page Title"
+        }
+      },
+      "required": [
+        "marketplace",
+        "product_url",
+        "extension_version"
+      ],
+      "title": "GeneralizedSourceMetadata",
+      "type": "object"
+    },
+    "GeneralizedSpecificationItem": {
+      "additionalProperties": false,
+      "description": "Raw label/value specification pair extracted from page DOM.",
+      "properties": {
+        "label": {
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "value"
+      ],
+      "title": "GeneralizedSpecificationItem",
+      "type": "object"
+    },
+    "GeneralizedValidationDiagnostics": {
+      "additionalProperties": false,
+      "description": "Diagnostics, warnings, and validation outcome.",
+      "properties": {
+        "status": {
+          "enum": [
+            "valid",
+            "needs_review",
+            "invalid"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "identity_status": {
+          "default": "identified",
+          "enum": [
+            "identified",
+            "probable",
+            "ambiguous",
+            "unmatched"
+          ],
+          "title": "Identity Status",
+          "type": "string"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        },
+        "errors": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Errors",
+          "type": "array"
+        },
+        "diagnostics": {
+          "additionalProperties": true,
+          "title": "Diagnostics",
+          "type": "object"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "title": "GeneralizedValidationDiagnostics",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Category-independent marketplace extraction snapshot contract.",
+  "properties": {
+    "contract": {
+      "$ref": "#/$defs/GeneralizedContractMetadata"
+    },
+    "source": {
+      "$ref": "#/$defs/GeneralizedSourceMetadata"
+    },
+    "product_context": {
+      "$ref": "#/$defs/GeneralizedProductContext"
+    },
+    "raw_evidence": {
+      "$ref": "#/$defs/GeneralizedRawEvidence"
+    },
+    "extracted_data": {
+      "$ref": "#/$defs/GeneralizedExtractedData"
+    },
+    "validation": {
+      "$ref": "#/$defs/GeneralizedValidationDiagnostics"
+    }
+  },
+  "required": [
+    "contract",
+    "source",
+    "product_context",
+    "raw_evidence",
+    "extracted_data",
+    "validation"
+  ],
+  "title": "Review Master Generalized Extraction Record V1",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://review-master.local/schemas/generalized-extraction-1.0.schema.json"
+}

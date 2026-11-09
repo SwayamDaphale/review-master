@@ -43,6 +43,36 @@ class Settings(BaseSettings):
         default="redis://localhost:6379/0",
         description="Redis URL for caching and rate limiting",
     )
+    CELERY_BROKER_URL: str = Field(
+        default="redis://localhost:6379/1",
+        description="Celery message broker URL",
+    )
+    CELERY_RESULT_BACKEND: str = Field(
+        default="redis://localhost:6379/2",
+        description="Celery task result backend URL",
+    )
+
+    # Object Storage (SeaweedFS / S3 Compatible)
+    S3_ENDPOINT_URL: str = Field(
+        default="http://localhost:8333",
+        description="S3 / SeaweedFS endpoint URL",
+    )
+    S3_REGION: str = Field(
+        default="us-east-1",
+        description="S3 region identifier",
+    )
+    S3_BUCKET_EVIDENCE: str = Field(
+        default="rm-evidence",
+        description="Evidence bucket name",
+    )
+    S3_ACCESS_KEY: str = Field(
+        default="devaccess",
+        description="S3 access key",
+    )
+    S3_SECRET_KEY: str = Field(
+        default="devsecret",
+        description="S3 secret key",
+    )
 
     # Core Security Secrets (Required in production)
     JWT_SECRET: str = Field(
@@ -66,7 +96,7 @@ class Settings(BaseSettings):
         description="Cryptographic pepper for API key hashing",
     )
 
-    # Optional AI Provider API Keys (Empty defaults, populated if used)
+    # Optional AI Provider API Keys & LLM Orchestration
     GOOGLE_API_KEY: str | None = Field(
         default=None, description="Google Gemini API key"
     )
@@ -74,6 +104,32 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str | None = Field(default=None, description="OpenAI API key")
     ANTHROPIC_API_KEY: str | None = Field(default=None, description="Anthropic API key")
     GROQ_API_KEY: str | None = Field(default=None, description="Groq API key")
+    NVIDIA_API_KEY: str | None = Field(default=None, description="NVIDIA NIM API key")
+
+    GROQ_MODEL: str = Field(
+        default="llama-3.3-70b-versatile",
+        description="Default Groq LLM model identifier",
+    )
+    NVIDIA_MODEL: str = Field(
+        default="meta/llama-3.3-70b-instruct",
+        description="Default NVIDIA NIM LLM model identifier",
+    )
+    LLM_PRIMARY_PROVIDER: str = Field(
+        default="groq",
+        description="Primary LLM inference provider: 'groq' or 'nvidia'",
+    )
+    LLM_FALLBACK_ENABLED: bool = Field(
+        default=True,
+        description="Enable automatic failover to backup provider",
+    )
+    LLM_TIMEOUT_SECONDS: float = Field(
+        default=30.0,
+        description="Timeout per LLM request in seconds",
+    )
+    LLM_MAX_RETRIES: int = Field(
+        default=2,
+        description="Maximum retry attempts for transient provider failures",
+    )
 
     # Pydantic Settings Configuration
     model_config = SettingsConfigDict(
@@ -132,6 +188,9 @@ class Settings(BaseSettings):
             "has_openai_key": bool(self.OPENAI_API_KEY),
             "has_anthropic_key": bool(self.ANTHROPIC_API_KEY),
             "has_groq_key": bool(self.GROQ_API_KEY),
+            "has_nvidia_key": bool(self.NVIDIA_API_KEY),
+            "primary_provider": self.LLM_PRIMARY_PROVIDER,
+            "fallback_enabled": self.LLM_FALLBACK_ENABLED,
         }
 
     def __repr__(self) -> str:

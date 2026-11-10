@@ -112,6 +112,13 @@ class AsyncJobManager:
             return None
 
         job.status = status
+        now_dt = datetime.datetime.now(datetime.UTC)
+        if status == "running":
+            if not job.started_at:
+                job.started_at = now_dt
+            job.heartbeat_at = now_dt
+        elif status in ("completed", "failed"):
+            job.completed_at = now_dt
         if error_message:
             job.error_message = self.sanitize_error(error_message)
         if result_payload:

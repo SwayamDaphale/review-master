@@ -71,6 +71,24 @@ class GroqProvider(LLMProvider):
                 ],
                 "pros": ["Excellent battery performance"],
                 "cons": [],
+                "product_title": "Example Smartphone",
+                "brand": "ExampleBrand",
+                "model": "Model X",
+                "attributes": [
+                    {
+                        "attribute_key": "battery",
+                        "value": "5000",
+                        "unit": "mAh",
+                        "confidence": 0.95,
+                        "source_quote": "battery lasts two full days with 5000 mAh capacity",
+                    }
+                ],
+                "summary": "Development mock summary.",
+                "overall_summary": "Development mock overall summary.",
+                "key_strengths": ["Excellent battery performance"],
+                "key_drawbacks": [],
+                "consensus_verdict": "Recommended choice.",
+                "buyer_recommendation": "Great value for battery life.",
             }
             try:
                 validated_data = schema.model_validate(mock_data)

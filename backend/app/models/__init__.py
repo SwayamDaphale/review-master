@@ -15,6 +15,7 @@ from app.models.evaluation import (
 from app.models.evidence import Evidence, EvidenceVersion
 from app.models.extraction import ExtractionRecord, IngestionJob
 from app.models.identity import Role, User, user_roles
+from app.models.job import Job
 from app.models.listing import MarketplaceListing
 from app.models.marketplace import Marketplace
 from app.models.offer import PriceRecord, SellerOffer
@@ -47,6 +48,7 @@ __all__ = [
     "ExtractionRecord",
     "ImportToken",
     "IngestionJob",
+    "Job",
     "Marketplace",
     "MarketplaceListing",
     "ParameterResult",

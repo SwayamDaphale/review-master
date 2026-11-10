@@ -227,16 +227,23 @@ services:
     build: *backend-build
     image: review-master-backend:dev
     container_name: rm-beat
-    profiles: ["celery"]
     restart: unless-stopped
-    command: ["celery", "-A", "app.worker.celery_app", "beat", "--loglevel=info", "--schedule", "/tmp/celerybeat-schedule"]
+    command: ["celery", "-A", "app.worker.celery_app", "beat", "--loglevel=info", "--schedule", "/var/run/celery/celerybeat-schedule"]
     environment: *backend-env
     volumes:
       - ./backend:/app
+      - celerybeat-data:/var/run/celery
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import os, sys; sys.exit(0 if any(\"beat\" in open(f\"/proc/{p}/cmdline\", errors=\"ignore\").read() for p in os.listdir(\"/proc\") if p.isdigit()) else 1)'"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
     depends_on:
       migrate:
         condition: service_completed_successfully
       redis:
+        condition: service_healthy
+      postgres:
         condition: service_healthy
 
   # ==========================================
@@ -421,6 +428,7 @@ services:
       - pgadmin-data:/var/lib/pgadmin
 
 volumes:
+  celerybeat-data:
   postgres-data:
   redis-data:
   objectstore-data:

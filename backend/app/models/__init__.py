@@ -13,8 +13,10 @@ from app.models.evaluation import (
     ParameterResult,
 )
 from app.models.evidence import Evidence, EvidenceVersion
+from app.models.evidence_quality import EvidenceConflict, EvidenceVerificationHistory
 from app.models.extraction import ExtractionRecord, IngestionJob
 from app.models.identity import Role, User, user_roles
+from app.models.identity_mapping import ExternalIdentityMapping, IdentityReviewQueue
 from app.models.job import Job
 from app.models.listing import MarketplaceListing
 from app.models.marketplace import Marketplace
@@ -44,8 +46,12 @@ __all__ = [
     "EvaluationModel",
     "EvaluationModelVersion",
     "Evidence",
+    "EvidenceConflict",
+    "EvidenceVerificationHistory",
     "EvidenceVersion",
+    "ExternalIdentityMapping",
     "ExtractionRecord",
+    "IdentityReviewQueue",
     "ImportToken",
     "IngestionJob",
     "Job",

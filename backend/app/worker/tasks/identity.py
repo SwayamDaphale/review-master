@@ -11,6 +11,7 @@ import app.worker.celery_app as ca
 from app.contracts.extraction.canonical import CanonicalInternalExtraction
 from app.db.base import utc_now
 from app.models.category import Category
+from app.models.identity_mapping import IdentityReviewQueue
 from app.models.marketplace import Marketplace
 from app.services.identity_resolver import IdentityResolver
 from app.worker.services.job_service import DurableJobService
@@ -36,7 +37,7 @@ def register_identity_tasks(celery_app: Celery) -> None:
         model_name: str | None = None,
         job_id_str: str | None = None,
     ) -> dict[str, Any]:
-        """Resolve canonical product and variant identities from marketplace signals."""
+        """Resolve canonical product and variant identities from marketplace signals using 5-stage pipeline."""
         job_id = uuid.UUID(job_id_str) if job_id_str else None
         db = ca.SessionLocal()
         try:
@@ -89,6 +90,7 @@ def register_identity_tasks(celery_app: Celery) -> None:
                 marketplace_id=mp.id,
                 asin=asin,
                 canonical=canonical,
+                auto_queue_review=True,
             )
             db.commit()
 
@@ -97,6 +99,8 @@ def register_identity_tasks(celery_app: Celery) -> None:
                 "variant_id": str(resolution.variant_id) if resolution.variant_id else None,
                 "match_type": resolution.match_state,
                 "confidence": resolution.confidence,
+                "review_queue_id": str(resolution.review_queue_id) if resolution.review_queue_id else None,
+                "candidate_scores": resolution.candidate_scores,
                 "status": "completed",
             }
 
@@ -112,6 +116,56 @@ def register_identity_tasks(celery_app: Celery) -> None:
             if isinstance(exc, Retry):
                 raise
             logger.error("Error resolving identity for %s/%s: %s", marketplace_code, asin, exc)
+            if job_id:
+                job_service.fail_job(job_id, error_message=str(exc))
+                db.commit()
+            raise
+        finally:
+            db.close()
+
+    @celery_app.task(
+        bind=True,
+        name="identity.review_candidates",
+        max_retries=2,
+        default_retry_delay=10,
+    )
+    def review_pending_candidates(
+        self: Task,
+        limit: int = 50,
+        job_id_str: str | None = None,
+    ) -> dict[str, Any]:
+        """Process pending items in the IdentityReviewQueue."""
+        job_id = uuid.UUID(job_id_str) if job_id_str else None
+        db = ca.SessionLocal()
+        try:
+            job_service = DurableJobService(db)
+            if job_id:
+                job_service.start_job(job_id, worker_id=getattr(self.request, "hostname", None))
+                db.commit()
+
+            items = (
+                db.execute(
+                    select(IdentityReviewQueue)
+                    .where(IdentityReviewQueue.status == "pending")
+                    .limit(limit)
+                )
+                .scalars()
+                .all()
+            )
+
+            processed_count = len(items)
+            result_payload = {
+                "pending_count": processed_count,
+                "status": "completed",
+            }
+
+            if job_id:
+                job_service.complete_job(job_id, result_payload=result_payload)
+                db.commit()
+
+            return result_payload
+        except Exception as exc:
+            logger.error("Error processing identity review queue: %s", exc)
             if job_id:
                 job_service.fail_job(job_id, error_message=str(exc))
                 db.commit()

@@ -1,5 +1,29 @@
 # Changelog
 
+## 2026-11-11 — Phase B8: Identity Resolution, Variant Matching & Evidence Quality Management
+
+- **Database Migration `0009_identity_and_evidence_quality`**:
+  - Created `external_identity_mappings` for authoritative ASIN/external ID mapping.
+  - Created `identity_review_queue` for ambiguous and low-confidence match triage.
+  - Created `evidence_conflicts` for tracking contradictory attribute observations non-destructively.
+  - Created `evidence_verification_history` for append-only audit trail of verification status changes.
+- **5-Stage Identity Resolution Pipeline**:
+  - Stage 1: Exact marketplace ID mapping check (`ExternalIdentityMapping`).
+  - Stage 2: Trusted listing mapping check (`MarketplaceListing`).
+  - Stage 3: Deterministic product and variant fingerprinting (`FingerprintService`).
+  - Stage 4: Multi-candidate scoring with contradiction penalties.
+  - Stage 5: Ambiguity detection and `IdentityReviewQueue` dispatch.
+- **Evidence Quality & Provenance**:
+  - Enforced backend-controlled trust tiers (T1-T4) rejecting client-submitted trust overrides.
+  - Implemented non-destructive conflict preservation and resolution workflows.
+  - Implemented verification state lifecycle tracking with audit reason logging.
+- **Background Tasks & REST APIs**:
+  - Added Celery tasks `identity.resolve`, `identity.review_candidates`, `evidence.assign_trust`, `evidence.detect_conflicts`.
+  - Added REST APIs under `/api/v1/identity` and `/api/v1/evidence`.
+- **Testing & Verification**:
+  - Automated test suite `tests/test_b8_identity_resolution.py` passing 22/22 tests across Categories A through K.
+  - Full regression pass confirmed with B1-B7 test suites.
+
 ## 2026-10-12 — merge into a single project
 
 **Merged sources**

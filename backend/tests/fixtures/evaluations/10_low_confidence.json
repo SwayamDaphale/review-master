@@ -1,0 +1,201 @@
+{
+  "name": "10_low_confidence",
+  "description": "Low confidence from unverified T4 evidence",
+  "model_config": {
+    "name": "Smartphone Quality Index",
+    "version": "1.0.0",
+    "category_key": "smartphone",
+    "description": "Deterministic scoring model for smartphones",
+    "parameters": [
+      {
+        "key": "battery_capacity_mah",
+        "attribute_key": "battery_capacity_mah",
+        "label": "Battery Capacity",
+        "weight": "0.30",
+        "scoring_rule": "linear_range",
+        "rule_params": {
+          "min_val": "3000",
+          "max_val": "6000",
+          "direction": "higher_is_better",
+          "clamp_out_of_bounds": true
+        },
+        "is_critical": true,
+        "is_required": true
+      },
+      {
+        "key": "ram_gb",
+        "attribute_key": "ram_gb",
+        "label": "System RAM",
+        "weight": "0.25",
+        "scoring_rule": "piecewise",
+        "rule_params": {
+          "breakpoints": [
+            {
+              "x": "4",
+              "score": "20.0"
+            },
+            {
+              "x": "8",
+              "score": "60.0"
+            },
+            {
+              "x": "12",
+              "score": "90.0"
+            },
+            {
+              "x": "16",
+              "score": "100.0"
+            }
+          ],
+          "interpolate": true
+        },
+        "is_critical": false,
+        "is_required": true
+      },
+      {
+        "key": "supports_5g",
+        "attribute_key": "supports_5g",
+        "label": "5G Connectivity",
+        "weight": "0.20",
+        "scoring_rule": "boolean",
+        "rule_params": {
+          "true_score": "100.0",
+          "false_score": "0.0"
+        },
+        "is_critical": false,
+        "is_required": false
+      },
+      {
+        "key": "display_type",
+        "attribute_key": "display_type",
+        "label": "Display Panel Technology",
+        "weight": "0.25",
+        "scoring_rule": "ordinal",
+        "rule_params": {
+          "mapping": {
+            "tft": "20.0",
+            "ips_lcd": "50.0",
+            "oled": "85.0",
+            "dynamic_amoled_2x": "100.0"
+          }
+        },
+        "is_critical": false,
+        "is_required": false
+      }
+    ],
+    "aggregation": {
+      "formula": "weighted_average",
+      "precision": 2
+    },
+    "coverage_policy": {
+      "coverage_floor": "0.40",
+      "insufficient_coverage_action": "withhold_score"
+    },
+    "confidence_policy": {
+      "high_threshold": "0.75",
+      "medium_threshold": "0.45"
+    }
+  },
+  "variant_attributes": {
+    "battery_capacity_mah": 4500,
+    "ram_gb": 8,
+    "supports_5g": true,
+    "display_type": "oled"
+  },
+  "evidence_records": {
+    "battery_capacity_mah": {
+      "evidence_id": "ev-1",
+      "evidence_version_id": "ev-v-1",
+      "trust_tier": 4,
+      "verification_state": "unverified"
+    },
+    "ram_gb": {
+      "evidence_id": "ev-2",
+      "evidence_version_id": "ev-v-2",
+      "trust_tier": 4,
+      "verification_state": "unverified"
+    },
+    "supports_5g": {
+      "evidence_id": "ev-3",
+      "evidence_version_id": "ev-v-3",
+      "trust_tier": 4,
+      "verification_state": "unverified"
+    },
+    "display_type": {
+      "evidence_id": "ev-4",
+      "evidence_version_id": "ev-v-4",
+      "trust_tier": 4,
+      "verification_state": "unverified"
+    }
+  },
+  "is_valid": true,
+  "expected_output": {
+    "overall_score": null,
+    "coverage": "0.000",
+    "coverage_state": "insufficient",
+    "confidence_score": "0.000",
+    "confidence_state": "insufficient_evidence",
+    "limitations": {
+      "parameter_limitations": [
+        {
+          "parameter_key": "battery_capacity_mah",
+          "reasons": [
+            "Evidence trust tier T4 not eligible under model policy (allowed: [1, 2, 3])."
+          ]
+        },
+        {
+          "parameter_key": "ram_gb",
+          "reasons": [
+            "Evidence trust tier T4 not eligible under model policy (allowed: [1, 2, 3])."
+          ]
+        },
+        {
+          "parameter_key": "supports_5g",
+          "reasons": [
+            "Evidence trust tier T4 not eligible under model policy (allowed: [1, 2, 3])."
+          ]
+        },
+        {
+          "parameter_key": "display_type",
+          "reasons": [
+            "Evidence trust tier T4 not eligible under model policy (allowed: [1, 2, 3])."
+          ]
+        }
+      ],
+      "coverage": "Evaluated coverage (0.0%) is below the required floor of 40.0%."
+    },
+    "configuration_hash": "8edd13494933fb6a7c8c03f1594fb522d2402b657b2a84e6740f4c5bffdfe5c3",
+    "input_fingerprint": "23f745d43fdb2f4a021954bd03985ff8e924c1407b1b282c7bd9193c76cb2e1f",
+    "output_fingerprint": "799adbffa98b9a0576664394adad1286ca1d785d5bf61c4e244900c3e844ea2d",
+    "parameters": [
+      {
+        "key": "battery_capacity_mah",
+        "score": null,
+        "status": "unverified",
+        "effective_weight": "0.0",
+        "contribution": null
+      },
+      {
+        "key": "ram_gb",
+        "score": null,
+        "status": "unverified",
+        "effective_weight": "0.0",
+        "contribution": null
+      },
+      {
+        "key": "supports_5g",
+        "score": null,
+        "status": "unverified",
+        "effective_weight": "0.0",
+        "contribution": null
+      },
+      {
+        "key": "display_type",
+        "score": null,
+        "status": "unverified",
+        "effective_weight": "0.0",
+        "contribution": null
+      }
+    ]
+  }
+}

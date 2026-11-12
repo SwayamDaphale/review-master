@@ -1,5 +1,30 @@
 # Changelog
 
+## 2026-11-11 — Phase B9: Deterministic Evaluation Engine
+
+- **Database Migrations `0010_eval_engine_b9` & `0011_eval_db_immutability`**:
+  - `0010_eval_engine_b9`: Added model metadata and lifecycle columns to `evaluation_models` (`description`, `status`, `active_version_id`, `created_by`), cryptographic `configuration_hash` to `evaluation_model_versions`, execution trace fields to `evaluations` (`configuration_hash`, `input_fingerprint`, `output_fingerprint`, `calculation_policy_version`), and audit columns to `parameter_results` (`effective_weight`, `evidence_version_ids`, `raw_input_value`, `normalized_value`, `scoring_rule`).
+  - `0011_eval_db_immutability`: Attached `trg_parameter_results_append_only` to `parameter_results` to reject all direct updates and deletions; attached `trg_eval_model_version_immutability` to `evaluation_model_versions` enforcing draft mutability, published immutability (except status-only deprecation), and permanent deprecated immutability at the PostgreSQL engine level.
+- **Deterministic Non-LLM Scoring Engine (`app.services.evaluation_rules`)**:
+  - Implemented pure Decimal arithmetic scoring functions conforming strictly to ADR-0003: `linear_range` (higher/lower is better), `piecewise` (monotonic linear interpolation), `boolean` (explicit false handling; missing never false), and `ordinal` (strict domain key mapping).
+  - Guaranteed missing attribute values remain explicitly `missing` and never default to zero or fabricate scores.
+- **Deterministic Evaluation Calculator (`app.services.evaluation_calculator`)**:
+  - Dynamic weight normalization across evaluated parameters summing to 1.00000.
+  - Coverage calculation with configurable floor (default 0.40); withholds overall score if floor is not met.
+  - Evidence-aware confidence scoring based on trust tiers (T1-T4), verification states, and contradiction penalties (-0.15 for unresolved conflicts).
+  - Reproducible SHA-256 canonical fingerprints for input data and output evaluation results.
+- **Model Registry & Immutability (`app.services.evaluation_registry`)**:
+  - Managed model lifecycle: `draft -> validated -> published -> deprecated`.
+  - Strictly enforced published model version immutability (mutations or duplicate publications rejected).
+  - Maintained category-level active version pointers and append-only recalculation history.
+- **REST APIs & Celery Background Processing**:
+  - REST endpoints under `/api/v1/evaluation-models` and `/api/v1/variants/{id}/evaluations` with RBAC enforcement (`EVALUATION_MANAGE`, `EVALUATION_READ`).
+  - Durable Celery tasks `evaluation.calculate` and `evaluation.recalculate` tracking Job lifecycle transitions.
+- **Verification & Acceptance**:
+  - 14 golden fixtures in `tests/fixtures/evaluations/` verified with byte-for-byte exact hash and score reproduction.
+  - 26/26 tests passing in `tests/test_b9_evaluation_engine.py` across Groups A through I.
+  - Zero regressions across Alembic, Foundation, B6, B7, and B8 test suites.
+
 ## 2026-11-11 — Phase B8: Identity Resolution, Variant Matching & Evidence Quality Management
 
 - **Database Migration `0009_identity_and_evidence_quality`**:

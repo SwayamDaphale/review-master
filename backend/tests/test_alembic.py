@@ -30,9 +30,17 @@ def test_alembic_config_loads():
     script_dir = ScriptDirectory.from_config(cfg)
     heads = script_dir.get_heads()
     assert len(heads) == 1
-    assert heads[0] == "0009_identity_and_evidence_quality"
+    assert heads[0] == "0011_eval_db_immutability"
 
     # Verify revision chain integrity
+    rev_0011 = script_dir.get_revision("0011_eval_db_immutability")
+    assert rev_0011 is not None
+    assert rev_0011.down_revision == "0010_eval_engine_b9"
+
+    rev_0010 = script_dir.get_revision("0010_eval_engine_b9")
+    assert rev_0010 is not None
+    assert rev_0010.down_revision == "0009_identity_and_evidence_quality"
+
     rev_0009 = script_dir.get_revision("0009_identity_and_evidence_quality")
     assert rev_0009 is not None
     assert rev_0009.down_revision == "0008_durable_jobs"

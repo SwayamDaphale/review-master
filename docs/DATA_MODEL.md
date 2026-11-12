@@ -45,10 +45,10 @@ Conventions
 
 | Table | Key columns | Constraints / notes |
 |---|---|---|
-| `evaluation_models` | `id`, `category_id`, `name` | One per category/domain |
-| `evaluation_model_versions` | `id`, `model_id`, `version`, `status (draft\|review\|published\|retired)`, `definition jsonb`, `approved_by`, `published_at` | `unique(model_id, version)`; `definition` holds parameters, weights, normalization rules, evidence requirements, confidence policy; **immutable after `published`**; publish blocked unless weights validated (see `evaluation-models/`) |
-| `evaluations` | `id`, `variant_id`, `model_version_id`, `overall_score numeric(5,2) null`, `confidence_state`, `confidence_score numeric(4,3)`, `coverage numeric(4,3)`, `limitations jsonb`, `evidence_snapshot_hash`, `created_at`, `trigger` | Append-only; index `(variant_id, created_at desc)`; "latest" is a view, not an update |
-| `parameter_results` | `id`, `evaluation_id`, `parameter_key`, `score numeric(5,2) null`, `status (scored\|not_scored\|conflicted)`, `weight`, `is_critical`, `evidence_ids uuid[]`, `explanation_data jsonb` | `not_scored` has `score null` (never 0) |
+| `evaluation_models` | `id`, `category_id`, `name`, `description`, `status (draft\|published\|deprecated)`, `active_version_id`, `created_by` | One per category/domain; `active_version_id` points to the active published version |
+| `evaluation_model_versions` | `id`, `model_id`, `version`, `status (draft\|validated\|published\|deprecated)`, `definition jsonb`, `configuration_hash`, `approved_by`, `published_at` | `unique(model_id, version)`; `definition` holds parameters, weights, normalization rules, evidence requirements, confidence policy; **immutable after `published`**; `configuration_hash` is SHA-256 of canonical definition |
+| `evaluations` | `id`, `variant_id`, `model_version_id`, `overall_score numeric(5,2) null`, `confidence_state`, `confidence_score numeric(4,3)`, `coverage numeric(4,3)`, `limitations jsonb`, `configuration_hash`, `input_fingerprint`, `output_fingerprint`, `calculation_policy_version`, `created_at`, `trigger` | Append-only; index `(variant_id, created_at desc)`; "latest" is a view, not an update; cryptographic fingerprints guarantee reproducible calculations |
+| `parameter_results` | `id`, `evaluation_id`, `parameter_key`, `attribute_key`, `score numeric(7,4) null`, `status (evaluated\|missing\|unverified\|conflict\|invalid)`, `weight numeric(6,5)`, `effective_weight numeric(6,5)`, `scoring_rule`, `raw_input_value jsonb`, `normalized_value jsonb`, `is_critical`, `evidence_ids uuid[]`, `evidence_version_ids text[]`, `explanation_data jsonb` | `missing`/`conflict`/`unverified` have `score null` (never 0); `effective_weight` sums to 1.00000 across evaluated parameters |
 
 ### 1.4 `evidence`
 

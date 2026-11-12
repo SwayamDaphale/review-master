@@ -1,0 +1,175 @@
+{
+  "name": "14_variant_hardware_diff",
+  "description": "Hardware configuration variant diff",
+  "model_config": {
+    "name": "Smartphone Quality Index",
+    "version": "1.0.0",
+    "category_key": "smartphone",
+    "description": "Deterministic scoring model for smartphones",
+    "parameters": [
+      {
+        "key": "battery_capacity_mah",
+        "attribute_key": "battery_capacity_mah",
+        "label": "Battery Capacity",
+        "weight": "0.30",
+        "scoring_rule": "linear_range",
+        "rule_params": {
+          "min_val": "3000",
+          "max_val": "6000",
+          "direction": "higher_is_better",
+          "clamp_out_of_bounds": true
+        },
+        "is_critical": true,
+        "is_required": true
+      },
+      {
+        "key": "ram_gb",
+        "attribute_key": "ram_gb",
+        "label": "System RAM",
+        "weight": "0.25",
+        "scoring_rule": "piecewise",
+        "rule_params": {
+          "breakpoints": [
+            {
+              "x": "4",
+              "score": "20.0"
+            },
+            {
+              "x": "8",
+              "score": "60.0"
+            },
+            {
+              "x": "12",
+              "score": "90.0"
+            },
+            {
+              "x": "16",
+              "score": "100.0"
+            }
+          ],
+          "interpolate": true
+        },
+        "is_critical": false,
+        "is_required": true
+      },
+      {
+        "key": "supports_5g",
+        "attribute_key": "supports_5g",
+        "label": "5G Connectivity",
+        "weight": "0.20",
+        "scoring_rule": "boolean",
+        "rule_params": {
+          "true_score": "100.0",
+          "false_score": "0.0"
+        },
+        "is_critical": false,
+        "is_required": false
+      },
+      {
+        "key": "display_type",
+        "attribute_key": "display_type",
+        "label": "Display Panel Technology",
+        "weight": "0.25",
+        "scoring_rule": "ordinal",
+        "rule_params": {
+          "mapping": {
+            "tft": "20.0",
+            "ips_lcd": "50.0",
+            "oled": "85.0",
+            "dynamic_amoled_2x": "100.0"
+          }
+        },
+        "is_critical": false,
+        "is_required": false
+      }
+    ],
+    "aggregation": {
+      "formula": "weighted_average",
+      "precision": 2
+    },
+    "coverage_policy": {
+      "coverage_floor": "0.40",
+      "insufficient_coverage_action": "withhold_score"
+    },
+    "confidence_policy": {
+      "high_threshold": "0.75",
+      "medium_threshold": "0.45"
+    }
+  },
+  "variant_attributes": {
+    "battery_capacity_mah": 5000,
+    "ram_gb": 16,
+    "supports_5g": true,
+    "display_type": "dynamic_amoled_2x"
+  },
+  "evidence_records": {
+    "battery_capacity_mah": {
+      "evidence_id": "ev-01",
+      "evidence_version_id": "ev-v-01",
+      "trust_tier": 1,
+      "verification_state": "verified"
+    },
+    "ram_gb": {
+      "evidence_id": "ev-02",
+      "evidence_version_id": "ev-v-02",
+      "trust_tier": 2,
+      "verification_state": "verified"
+    },
+    "supports_5g": {
+      "evidence_id": "ev-03",
+      "evidence_version_id": "ev-v-03",
+      "trust_tier": 2,
+      "verification_state": "verified"
+    },
+    "display_type": {
+      "evidence_id": "ev-04",
+      "evidence_version_id": "ev-v-04",
+      "trust_tier": 2,
+      "verification_state": "verified"
+    }
+  },
+  "is_valid": true,
+  "expected_output": {
+    "overall_score": "90.00",
+    "coverage": "1.000",
+    "coverage_state": "sufficient",
+    "confidence_score": "0.895",
+    "confidence_state": "high",
+    "limitations": {
+      "parameter_limitations": []
+    },
+    "configuration_hash": "8edd13494933fb6a7c8c03f1594fb522d2402b657b2a84e6740f4c5bffdfe5c3",
+    "input_fingerprint": "a381d21cc58960e217d6c32d800553f3b4987b4863fb7f71b8d3ef38b5ed1b74",
+    "output_fingerprint": "faaab7ad2ee7392333c39816f3ce1993ab37e1ee5bcc5827bc34d2353793a510",
+    "parameters": [
+      {
+        "key": "battery_capacity_mah",
+        "score": "66.6667",
+        "status": "evaluated",
+        "effective_weight": "0.30000",
+        "contribution": "20.00"
+      },
+      {
+        "key": "ram_gb",
+        "score": "100.0000",
+        "status": "evaluated",
+        "effective_weight": "0.25000",
+        "contribution": "25.00"
+      },
+      {
+        "key": "supports_5g",
+        "score": "100.0000",
+        "status": "evaluated",
+        "effective_weight": "0.20000",
+        "contribution": "20.00"
+      },
+      {
+        "key": "display_type",
+        "score": "100.0000",
+        "status": "evaluated",
+        "effective_weight": "0.25000",
+        "contribution": "25.00"
+      }
+    ]
+  }
+}

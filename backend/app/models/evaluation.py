@@ -1,4 +1,4 @@
-"""Deterministic evaluation models conforming to ADR-0003 and DATA_MODEL.md."""
+"""Deterministic evaluation models conforming to ADR-0003, DATA_MODEL.md, and Phase B9 specs."""
 
 import uuid
 from datetime import datetime
@@ -13,6 +13,7 @@ from sqlalchemy import (
     Index,
     Numeric,
     String,
+    Text,
     UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import UUID
@@ -22,6 +23,7 @@ from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 
 if TYPE_CHECKING:
     from app.models.category import Category
+    from app.models.identity import User
     from app.models.variant import Variant
 
 
@@ -40,11 +42,38 @@ class EvaluationModel(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         String(128),
         nullable=False,
     )
+    description: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    status: Mapped[str] = mapped_column(
+        String(32),
+        default="draft",
+        nullable=False,
+        index=True,
+    )
+    active_version_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey(
+            "evaluation_model_versions.id",
+            ondelete="SET NULL",
+            use_alter=True,
+            name="fk_evaluation_models_active_version_id",
+        ),
+        nullable=True,
+    )
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
 
     # Relationships
     category: Mapped["Category"] = relationship("Category")
+    creator: Mapped["User | None"] = relationship("User")
     versions: Mapped[list["EvaluationModelVersion"]] = relationship(
         "EvaluationModelVersion",
+        foreign_keys="[EvaluationModelVersion.model_id]",
         back_populates="model",
         cascade="all, delete-orphan",
     )
@@ -75,6 +104,11 @@ class EvaluationModelVersion(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         JSON,
         nullable=False,
     )
+    configuration_hash: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+        index=True,
+    )
     approved_by: Mapped[str | None] = mapped_column(
         String(128),
         nullable=True,
@@ -86,7 +120,7 @@ class EvaluationModelVersion(Base, UUIDPrimaryKeyMixin, TimestampMixin):
 
     # Relationships
     model: Mapped["EvaluationModel"] = relationship(
-        "EvaluationModel", back_populates="versions"
+        "EvaluationModel", foreign_keys=[model_id], back_populates="versions"
     )
 
     __table_args__ = (
@@ -136,6 +170,23 @@ class Evaluation(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         String(64),
         nullable=True,
     )
+    configuration_hash: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+    )
+    input_fingerprint: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+    )
+    output_fingerprint: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+    )
+    calculation_policy_version: Mapped[str | None] = mapped_column(
+        String(32),
+        default="v1",
+        nullable=True,
+    )
 
     # Relationships
     variant: Mapped["Variant"] = relationship("Variant", back_populates="evaluations")
@@ -179,6 +230,10 @@ class ParameterResult(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         Numeric(4, 3),
         nullable=True,
     )
+    effective_weight: Mapped[Decimal | None] = mapped_column(
+        Numeric(6, 5),
+        nullable=True,
+    )
     is_critical: Mapped[bool] = mapped_column(
         Boolean,
         default=False,
@@ -188,6 +243,23 @@ class ParameterResult(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         JSON,
         default=list,
         nullable=False,
+    )
+    evidence_version_ids: Mapped[list[str]] = mapped_column(
+        JSON,
+        default=list,
+        nullable=False,
+    )
+    raw_input_value: Mapped[Any | None] = mapped_column(
+        JSON,
+        nullable=True,
+    )
+    normalized_value: Mapped[Any | None] = mapped_column(
+        JSON,
+        nullable=True,
+    )
+    scoring_rule: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
     )
     explanation_data: Mapped[dict[str, Any] | None] = mapped_column(
         JSON,

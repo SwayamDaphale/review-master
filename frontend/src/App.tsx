@@ -9,6 +9,7 @@ import Explore from './pages/app/Explore';
 import SearchPage from './pages/app/SearchPage';
 import ProductPage from './pages/app/ProductPage';
 import ComparePage from './pages/app/ComparePage';
+import RecommendationsPage from './pages/app/RecommendationsPage';
 import SavedPage from './pages/app/SavedPage';
 import ImportPage from './pages/app/ImportPage';
 import AccountPage from './pages/app/AccountPage';
@@ -37,6 +38,7 @@ export default function App() {
         <Route path="search" element={<SearchPage />} />
         <Route path="products/:productId" element={<ProductPage />} />
         <Route path="compare" element={<ComparePage />} />
+        <Route path="recommendations" element={<RecommendationsPage />} />
         <Route path="import" element={<ImportPage />} />
         <Route element={<RequireAuth />}>
           <Route path="saved" element={<SavedPage />} />

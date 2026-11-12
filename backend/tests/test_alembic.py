@@ -30,7 +30,7 @@ def test_alembic_config_loads():
     script_dir = ScriptDirectory.from_config(cfg)
     heads = script_dir.get_heads()
     assert len(heads) == 1
-    assert heads[0] == "0011_eval_db_immutability"
+    assert heads[0] == "0012_b10_comparison_recommendations"
 
     # Verify revision chain integrity
     rev_0011 = script_dir.get_revision("0011_eval_db_immutability")

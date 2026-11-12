@@ -1,5 +1,30 @@
 # Changelog
 
+## 2026-11-12 — Phase B10: Product Comparison & Requirement-Based Recommendation Engine
+
+- **Database Migration `0012_b10_comparison_recommendations`**:
+  - Created `recommendations` table for persistent audit storage of recommendation runs, parsed requirements, ranked items, excluded candidates, and SHA-256 invariant fingerprints.
+  - Attached PostgreSQL trigger `trg_comparison_sessions_max_active` executing `enforce_max_active_comparison_sessions()` using `pg_advisory_xact_lock` to strictly enforce the maximum of 2 active comparison sessions per user even under high-concurrency race conditions.
+- **Product Comparison Engine (`app.services.comparison_service`, `app.repositories.comparison_repository`)**:
+  - Full comparison session lifecycle: create, retrieve, list, add/remove variants, and explicit archiving.
+  - Category-locked comparison matrix supporting up to 5 variants per session, rejecting cross-category items and duplicate additions.
+  - Honest missing data representation: genuine boolean `False` is distinctly preserved, and absent attributes are flagged with `is_missing=True`.
+  - Strict dimension separation: overall evaluation score, confidence state, coverage, commercial offers/pricing, and community sentiment signals remain fully decoupled.
+  - Intelligent evaluation reuse (`app.services.evaluation_cache`): cache fingerprint verification against variant configuration and evidence snapshot hashes, with fast Redis caching and transparent PostgreSQL fallback.
+- **Requirement-Based Recommendation Engine (`app.services.requirement_parser`, `app.services.constraint_engine`, `app.services.ranking_service`, `app.services.recommendation_service`)**:
+  - Requirement parsing: structured extraction of budget, physical constraints, soft preferences, unit normalizations, and brand exclusions via Groq LLM with deterministic regex fallback.
+  - Three-valued constraint engine (`PASS`, `FAIL`, `UNKNOWN`): candidates with missing specifications or failing hard constraints are strictly excluded from ranking with human-readable audit reasons.
+  - Deterministic recommendation ranking: multi-tier stable tie-breaking prioritizing overall evaluation score, confidence state, coverage, price, and variant UUID.
+  - Evidence-grounded template explanations referencing verified specifications and model versions without hallucinated claims.
+  - SHA-256 invariant input and output fingerprints stored alongside recommendation records and logged to `audit_logs`.
+- **REST APIs & Frontend Integration**:
+  - REST endpoints under `/api/v1/comparisons` (session lifecycle and matrix computation) and `/api/v1/recommendations` (query parsing, recommendation generation, and historical retrieval).
+  - React frontend integration: interactive `ComparePage.tsx`, requirement-driven `RecommendationsPage.tsx`, updated TanStack Query endpoints in `httpClient.ts`, navigation links in `Layouts.tsx`, and routes in `App.tsx`.
+- **Testing & Verification**:
+  - Comprehensive automated test suite `tests/test_b10_comparison_recommendation.py` passing 9/9 tests including parallel database-level concurrency tests with 6 simultaneous threads.
+  - Full backend regression verification: Alembic (`test_alembic.py`), B9 (`test_b9_evaluation_engine.py`), B8 (`test_b8_identity_resolution.py`), B7 (`test_b7_background_processing.py`), and B6 (`test_b6_extraction_ingestion.py`) passing 100%.
+  - Frontend verification: 75/75 Vitest tests passing; production TypeScript build (`tsc --noEmit && vite build`) passing with zero errors.
+
 ## 2026-11-11 — Phase B9: Deterministic Evaluation Engine
 
 - **Database Migrations `0010_eval_engine_b9` & `0011_eval_db_immutability`**:

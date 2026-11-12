@@ -16,6 +16,8 @@ import {
   type VariantView,
   type CatalogSearchResult,
   type CatalogProductDetail,
+  type ApiComparisonMatrixResponse,
+  type ApiRecommendationResponse,
 } from '../types/api';
 import type { ParsedIdentifier } from '../lib/identifiers';
 import { STORAGE_KEYS, readStored } from '../lib/storage';
@@ -347,8 +349,195 @@ export class HttpClient implements ApiClient {
     throw new ApiError('not_implemented', 'Batch evaluated summaries are scheduled for Phase B4.');
   }
 
-  async compare(_variantIds: string[]): Promise<ComparisonResult> {
-    throw new ApiError('not_implemented', 'Product comparison service is scheduled for Phase B4.');
+  async compare(variantIds: string[]): Promise<ComparisonResult> {
+    if (!variantIds || variantIds.length === 0) {
+      throw new ApiError('invalid_argument', 'Select at least one product to compare.');
+    }
+    const session = await this.request<{ id: string; status: string }>('/api/v1/comparisons', {
+      method: 'POST',
+      body: JSON.stringify({ title: 'Product Comparison' }),
+    });
+
+    for (const vId of variantIds) {
+      await this.request(`/api/v1/comparisons/${session.id}/items`, {
+        method: 'POST',
+        body: JSON.stringify({ variant_id: vId }),
+      });
+    }
+
+    const matrix = await this.request<ApiComparisonMatrixResponse>(
+      `/api/v1/comparisons/${session.id}/matrix`
+    );
+
+    const categoryKey = (matrix.category_key || 'smartphone') as Category;
+    const items: ProductSummary[] = matrix.items.map((i) => ({
+      product: {
+        id: i.product_id,
+        category: categoryKey,
+        name: i.product_name,
+        manufacturer: i.manufacturer,
+        model: i.product_name,
+        model_name: i.product_name,
+        generation: undefined,
+        model_number: undefined,
+      },
+      variant: {
+        id: i.variant_id,
+        product_id: i.product_id,
+        label: i.sku_label,
+        configuration: {},
+      },
+      evaluation: {
+        evaluation_id: i.evaluation.evaluation_id || i.variant_id,
+        variant_id: i.variant_id,
+        model: { name: 'Category Evaluation Model', version: i.evaluation.model_version || 'v1' },
+        overall_score: i.evaluation.overall_score,
+        confidence: {
+          state: (i.evaluation.confidence_state as any) || 'unavailable',
+          score: i.evaluation.confidence_score ?? 0,
+          coverage: i.evaluation.coverage ?? 0,
+          reasons: [],
+        },
+        parameters: i.evaluation.parameters.map((p) => ({
+          key: p.key,
+          name: p.name,
+          score: p.score,
+          weight: p.weight ?? 0,
+          status: (p.status as any) || (p.score !== null ? 'scored' : 'not_scored'),
+          is_critical: p.is_critical,
+          evidence: [],
+        })),
+        limitations: [],
+        created_at: new Date().toISOString(),
+      },
+      price: i.offer.current_price,
+      match_state: 'exact' as any,
+    }));
+
+    const views: VariantView[] = matrix.items.map((i) => ({
+      product: {
+        id: i.product_id,
+        category: categoryKey,
+        name: i.product_name,
+        manufacturer: i.manufacturer,
+        model: i.product_name,
+        model_name: i.product_name,
+        generation: undefined,
+        model_number: undefined,
+      },
+      variant: {
+        id: i.variant_id,
+        product_id: i.product_id,
+        label: i.sku_label,
+        configuration: {},
+      },
+      match_state: 'exact' as any,
+      specs: Object.values(i.specifications).map((s) => ({
+        key: s.key,
+        label: s.display_label,
+        value: s.is_missing ? null : String(s.canonical_value ?? s.raw_value ?? ''),
+        unit: s.unit ?? undefined,
+        source: 'catalog',
+      })),
+      evaluation: {
+        evaluation_id: i.evaluation.evaluation_id || i.variant_id,
+        variant_id: i.variant_id,
+        model: { name: 'Category Evaluation Model', version: i.evaluation.model_version || 'v1' },
+        overall_score: i.evaluation.overall_score,
+        confidence: {
+          state: (i.evaluation.confidence_state as any) || 'unavailable',
+          score: i.evaluation.confidence_score ?? 0,
+          coverage: i.evaluation.coverage ?? 0,
+          reasons: [],
+        },
+        parameters: i.evaluation.parameters.map((p) => ({
+          key: p.key,
+          name: p.name,
+          score: p.score,
+          weight: p.weight ?? 0,
+          status: (p.status as any) || (p.score !== null ? 'scored' : 'not_scored'),
+          is_critical: p.is_critical,
+          evidence: [],
+        })),
+        limitations: [],
+        created_at: new Date().toISOString(),
+      },
+      explanation: {
+        text: 'Scores are generated deterministically from verified evidence.',
+        ai_generated: false,
+        mode: 'template',
+        referenced_parameters: [],
+      },
+      community: {
+        status: i.community.total_reviews_analyzed > 0 ? 'available' : 'unavailable',
+        sample_size: i.community.total_reviews_analyzed,
+        themes: [],
+        review_quality_signals: [],
+        ai_generated: false,
+      },
+      expert: {
+        status: 'published',
+        findings: [],
+      },
+      offers: [],
+      marketplace_rating: null,
+      sample: false,
+    }));
+
+    return {
+      category: categoryKey,
+      items,
+      views,
+    };
+  }
+
+  // --- B10 Comparison & Recommendation Endpoints ---
+
+  async createComparisonSession(title?: string, categoryId?: string) {
+    return this.request('/api/v1/comparisons', {
+      method: 'POST',
+      body: JSON.stringify({ title, category_id: categoryId }),
+    });
+  }
+
+  async listComparisonSessions(status?: string) {
+    const q = status ? `?status=${encodeURIComponent(status)}` : '';
+    return this.request(`/api/v1/comparisons${q}`);
+  }
+
+  async archiveComparisonSession(sessionId: string) {
+    return this.request(`/api/v1/comparisons/${sessionId}/archive`, {
+      method: 'POST',
+    });
+  }
+
+  async getComparisonMatrix(sessionId: string, recalculate?: boolean): Promise<ApiComparisonMatrixResponse> {
+    const q = recalculate ? '?recalculate=true' : '';
+    return this.request<ApiComparisonMatrixResponse>(`/api/v1/comparisons/${sessionId}/matrix${q}`);
+  }
+
+  async parseRequirements(query: string, categoryHint?: string) {
+    return this.request('/api/v1/recommendations/parse', {
+      method: 'POST',
+      body: JSON.stringify({ query, category_hint: categoryHint }),
+    });
+  }
+
+  async generateRecommendations(payload: {
+    query?: string;
+    requirements?: unknown;
+    category_key?: string;
+    category_id?: string;
+    limit?: number;
+  }): Promise<ApiRecommendationResponse> {
+    return this.request<ApiRecommendationResponse>('/api/v1/recommendations', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async getRecommendation(recommendationId: string): Promise<ApiRecommendationResponse> {
+    return this.request<ApiRecommendationResponse>(`/api/v1/recommendations/${recommendationId}`);
   }
 
   // --- Authentication Endpoints (Phase B4) ---

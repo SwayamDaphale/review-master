@@ -36,4 +36,8 @@ export interface ApiClient {
     cursor?: string;
   }): Promise<CatalogSearchResult>;
   getCatalogProductDetail(productId: string): Promise<CatalogProductDetail>;
+
+  // B10 Recommendations
+  parseRequirements?(query: string, categoryHint?: string): Promise<unknown>;
+  generateRecommendations?(payload: unknown): Promise<unknown>;
 }

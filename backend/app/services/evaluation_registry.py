@@ -172,11 +172,13 @@ class EvaluationRegistryService:
     def get_active_model_version(self, category_id: uuid.UUID) -> tuple[EvaluationModel, EvaluationModelVersion] | None:
         """Retrieve currently active published model version for category."""
         model = self.db.execute(
-            select(EvaluationModel).where(
+            select(EvaluationModel)
+            .where(
                 EvaluationModel.category_id == category_id,
                 EvaluationModel.status == "published",
             )
-        ).scalar_one_or_none()
+            .order_by(EvaluationModel.created_at.desc())
+        ).scalars().first()
         if not model or not model.active_version_id:
             return None
 

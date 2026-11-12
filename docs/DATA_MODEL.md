@@ -167,3 +167,39 @@ The database foundation for Phase B3 is fully migrated through Alembic:
    - **Jobs Reconciliation:** Extended `ingestion_jobs` with `job_type` and arbitrary JSONB `payload` to serve as the unified job tracking engine.
    - **Append-Only Triggers:** Database-level enforcement on PostgreSQL via `prevent_append_only_modification()` trigger function attached to `price_records`, `evidence_versions`, `evaluations`, and `audit_logs`.
    - **Recommendation Scope Decision:** Persistence tables for recommendations and criteria are intentionally reserved for a later phase alongside the recommendation engine implementation to prevent premature data modeling.
+
+---
+
+## 8. Phase B10 Schema Additions & Concurrency Guarantees
+
+Migration `0012_b10_comparison_recommendations.py` introduces full persistence for the recommendation engine and database-level concurrency enforcement for comparison sessions:
+
+### 8.1 Active Comparison Session Concurrency Trigger
+- **Trigger Function:** `enforce_max_active_comparison_sessions()`
+- **PostgreSQL Advisory Lock:** Employs `pg_advisory_xact_lock(hashtext('user_comp_session_' || NEW.user_id::text))` to serialize concurrent session creations per user within PostgreSQL.
+- **Rule:** Rejects `INSERT` or `UPDATE` transitioning `comparison_sessions.status` to `'active'` when the user already owns 2 or more active sessions, throwing exception:
+  `"Maximum of 2 active comparison sessions allowed per user."`
+- **Trigger Attachment:** `trg_comparison_sessions_max_active BEFORE INSERT OR UPDATE ON comparison_sessions FOR EACH ROW EXECUTE FUNCTION enforce_max_active_comparison_sessions()`.
+
+### 8.2 Recommendations Domain (`recommendations` table)
+- **Table:** `recommendations`
+- **Columns:**
+  - `id`: UUID Primary Key.
+  - `user_id`: UUID (nullable), foreign key to `users.id` with `SET NULL` on delete.
+  - `category_id`: UUID, foreign key to `categories.id` with `CASCADE` on delete.
+  - `raw_query`: Text (nullable), user natural-language requirement query.
+  - `parsed_requirements`: JSONB, structured criteria (`budget_max`, `hard_constraints`, `soft_preferences`, `excluded_brands`).
+  - `ranked_items`: JSONB, ordered list of recommended product items with overall score, confidence state, verified specifications, price, and evidence-grounded template explanations.
+  - `excluded_candidates`: JSONB, list of ineligible products failing three-valued hard constraints with human-readable rejection reasons.
+  - `eligible_count`: Integer, count of candidates passing all hard constraints.
+  - `ineligible_count`: Integer, count of candidates failing at least one hard constraint.
+  - `ranking_policy_version`: String (`v1`), deterministic ranking policy identifier.
+  - `model_version_id`: UUID (nullable), active evaluation model version used for scoring.
+  - `input_fingerprint`: String(64), SHA-256 canonical hash of input criteria and candidate state.
+  - `output_fingerprint`: String(64), SHA-256 canonical hash of ranked recommendations.
+  - `created_at`: DateTime(timezone=True), timestamp of recommendation generation.
+- **Indexes:**
+  - `ix_recommendations_user_id` on `user_id`
+  - `ix_recommendations_category_id` on `category_id`
+  - `ix_recommendations_created_at` on `created_at DESC`
+  - `ix_recommendations_input_fingerprint` on `input_fingerprint`

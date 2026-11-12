@@ -259,3 +259,129 @@ export class ApiError extends Error {
     this.code = code;
   }
 }
+
+// --- B10 Comparison & Recommendation Schemas ---
+
+export interface ApiComparisonMatrixResponse {
+  session_id: string;
+  title: string | null;
+  status: string;
+  category_id: string | null;
+  category_name: string | null;
+  category_key: string | null;
+  item_count: number;
+  specification_keys: { key: string; label: string }[];
+  items: ApiComparisonMatrixItem[];
+}
+
+export interface ApiComparisonMatrixItem {
+  variant_id: string;
+  product_id: string;
+  product_name: string;
+  manufacturer: string;
+  sku_label: string;
+  position: number;
+  specifications: Record<
+    string,
+    {
+      key: string;
+      display_label: string;
+      raw_value: unknown;
+      canonical_value: unknown;
+      unit: string | null;
+      is_missing: boolean;
+    }
+  >;
+  evaluation: {
+    evaluation_id: string | null;
+    model_version: string | null;
+    overall_score: number | null;
+    confidence_state: string;
+    confidence_score: number | null;
+    coverage: number | null;
+    parameters: {
+      key: string;
+      name: string;
+      score: number | null;
+      status: string;
+      weight: number | null;
+      is_critical: boolean;
+    }[];
+  };
+  offer: {
+    current_price: number | null;
+    currency: string | null;
+    seller: string | null;
+    is_stale: boolean;
+    is_available: boolean;
+  };
+  community: {
+    total_reviews_analyzed: number;
+    summary_text: string | null;
+    key_pros: string[];
+    key_cons: string[];
+  };
+}
+
+export interface ApiRecommendationResponse {
+  recommendation_id: string;
+  category_id: string;
+  category_key: string;
+  query: string | null;
+  parsed_requirements: {
+    category_key: string;
+    budget_max: number | null;
+    budget_currency: string;
+    hard_constraints: {
+      attribute_key: string;
+      operator: string;
+      target_value: unknown;
+      unit: string | null;
+      description: string | null;
+    }[];
+    soft_preferences: {
+      preference_key: string;
+      preferred_direction: string;
+      description: string | null;
+    }[];
+    excluded_brands: string[];
+  };
+  eligible_count: number;
+  ineligible_count: number;
+  ranked_recommendations: ApiRecommendedProductItem[];
+  excluded_candidates: ApiExcludedProductItem[];
+  ranking_policy_version: string;
+  model_version: string | null;
+  input_fingerprint: string;
+  output_fingerprint: string;
+  created_at: string;
+}
+
+export interface ApiRecommendedProductItem {
+  rank: number;
+  variant_id: string;
+  product_id: string;
+  product_name: string;
+  manufacturer: string;
+  sku_label: string;
+  overall_score: number | null;
+  confidence_state: string;
+  confidence_score: number | null;
+  coverage: number | null;
+  current_price: number | null;
+  currency: string | null;
+  explanation: string;
+  verified_specifications: Record<string, unknown>;
+  community_summary: string | null;
+}
+
+export interface ApiExcludedProductItem {
+  variant_id: string;
+  product_id: string;
+  product_name: string;
+  sku_label: string;
+  failed_constraints: string[];
+  unknown_constraints: string[];
+  reasons: string[];
+}
+

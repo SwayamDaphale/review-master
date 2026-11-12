@@ -14,6 +14,7 @@ from app.api.v1.identity import router as identity_router
 from app.api.v1.ingestion import router as ingestion_router
 from app.api.v1.listings import router as listings_router
 from app.api.v1.products import router as products_router
+from app.api.v1.recommendations import router as recommendations_router
 from app.api.v1.reviews import router as reviews_router
 
 api_v1_router = APIRouter(prefix="/api/v1")
@@ -30,3 +31,4 @@ api_v1_router.include_router(listings_router)
 api_v1_router.include_router(identity_router)
 api_v1_router.include_router(evidence_router)
 api_v1_router.include_router(evaluations_router)
+api_v1_router.include_router(recommendations_router)

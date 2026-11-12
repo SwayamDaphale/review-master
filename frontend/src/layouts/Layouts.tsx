@@ -123,6 +123,7 @@ export function AppLayout() {
         Explore
       </NavLink>
       {settings.features.compare ? <NavLink to="/app/compare">Compare</NavLink> : null}
+      <NavLink to="/app/recommendations">Recommendations</NavLink>
       <NavLink to="/app/saved">Saved</NavLink>
       {settings.features.importTool ? <NavLink to="/app/import">Import</NavLink> : null}
     </>

@@ -244,8 +244,8 @@ describe('HttpClient', () => {
   it('throws not_implemented for deferred endpoints without falling back to mock fixtures', async () => {
     const client = new HttpClient('http://localhost:8000');
 
-    await expect(client.compare(['v1', 'v2'])).rejects.toThrow(ApiError);
-    await expect(client.compare(['v1', 'v2'])).rejects.toMatchObject({
+    await expect(client.getSummaries(['v1', 'v2'])).rejects.toThrow(ApiError);
+    await expect(client.getSummaries(['v1', 'v2'])).rejects.toMatchObject({
       code: 'not_implemented',
     });
 

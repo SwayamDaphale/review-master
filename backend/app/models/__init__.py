@@ -24,6 +24,7 @@ from app.models.offer import PriceRecord, SellerOffer
 from app.models.operation import AuditLog, ImportToken
 from app.models.product import Product
 from app.models.product_family import ProductFamily
+from app.models.recommendation import Recommendation
 from app.models.review_intelligence import (
     ReviewAnalysis,
     ReviewAspectOpinion,
@@ -61,6 +62,7 @@ __all__ = [
     "PriceRecord",
     "Product",
     "ProductFamily",
+    "Recommendation",
     "ReviewAnalysis",
     "ReviewAspectOpinion",
     "ReviewProCon",

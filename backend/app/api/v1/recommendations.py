@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import AuthenticatedUser, require_permissions
 from app.core.permissions import Permission
+from app.core.rate_limit import recommendation_limiter
 from app.db.dependencies import get_db
 from app.schemas.recommendation import (
     RecommendationRequest,
@@ -18,7 +19,11 @@ from app.schemas.recommendation import (
 from app.services.recommendation_service import RecommendationService
 from app.services.requirement_parser import RequirementParserService
 
-router = APIRouter(prefix="/recommendations", tags=["Recommendations"])
+router = APIRouter(
+    prefix="/recommendations",
+    tags=["Recommendations"],
+    dependencies=[Depends(recommendation_limiter)],
+)
 
 
 @router.post(

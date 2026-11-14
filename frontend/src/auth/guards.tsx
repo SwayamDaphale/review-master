@@ -1,11 +1,17 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../state/auth';
 import { useAdmin } from '../lib/adminAuth';
+import { Loading } from '../components/states';
 
 /** Pages that need a signed-in user (saved products, alerts, account). */
 export function RequireAuth() {
-  const { session } = useAuth();
+  const { session, isInitializing } = useAuth();
   const location = useLocation();
+
+  if (isInitializing) {
+    return <Loading label="Verifying session..." />;
+  }
+
   if (!session) {
     return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
   }

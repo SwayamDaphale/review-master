@@ -241,17 +241,86 @@ describe('HttpClient', () => {
     });
   });
 
-  it('throws not_implemented for deferred endpoints without falling back to mock fixtures', async () => {
+  it('performs real variant view retrieval and synthesis', async () => {
     const client = new HttpClient('http://localhost:8000');
+    const mockVariantData = {
+      variant: { id: 'var-1', product_id: 'prod-1', label: '8GB/128GB', configuration: { ram_gb: 8, storage_gb: 128 } },
+      product: { id: 'prod-1', name: 'Test Smartphone', manufacturer: 'Acme', category: 'smartphone' },
+    };
+    const mockEval = {
+      id: 'eval-1',
+      overall_score: '85.50',
+      confidence_state: 'high',
+      confidence_score: '0.90',
+      coverage: '0.95',
+      parameter_results: [
+        { parameter_key: 'display', status: 'scored', score: '88.0', effective_weight: '0.2', is_critical: false },
+      ],
+      created_at: new Date().toISOString(),
+    };
 
-    await expect(client.getSummaries(['v1', 'v2'])).rejects.toThrow(ApiError);
-    await expect(client.getSummaries(['v1', 'v2'])).rejects.toMatchObject({
-      code: 'not_implemented',
+    globalThis.fetch = vi.fn().mockImplementation(async (url: string) => {
+      if (url.includes('/api/v1/products/variants/var-1')) {
+        return { ok: true, status: 200, json: async () => mockVariantData };
+      }
+      if (url.includes('/api/v1/variants/var-1/evaluations/latest')) {
+        return { ok: true, status: 200, json: async () => mockEval };
+      }
+      if (url.includes('/api/v1/evidence')) {
+        return { ok: true, status: 200, json: async () => ({ items: [] }) };
+      }
+      if (url.includes('/api/v1/products/prod-1/listings')) {
+        return { ok: true, status: 200, json: async () => [] };
+      }
+      return { ok: false, status: 404, statusText: 'Not Found', json: async () => ({}) };
     });
 
-    await expect(client.getPriceHistory('v1')).rejects.toThrow(ApiError);
-    await expect(client.getPriceHistory('v1')).rejects.toMatchObject({
-      code: 'not_implemented',
+    const view = await client.getVariantView('var-1');
+    expect(view.product.name).toBe('Test Smartphone');
+    expect(view.variant.label).toBe('8GB/128GB');
+    expect(view.evaluation.overall_score).toBe(85.5);
+    expect(view.evaluation.confidence.state).toBe('high');
+    expect(view.evaluation.parameters).toHaveLength(1);
+    expect(view.evaluation.parameters[0].key).toBe('display');
+  });
+
+  it('performs create and consume of single-use import handoff token', async () => {
+    const client = new HttpClient('http://localhost:8000');
+    globalThis.fetch = vi.fn().mockImplementation(async (url: string, opts: any) => {
+      if (url.includes('/api/v1/import-tokens/consume')) {
+        const body = JSON.parse(opts.body);
+        if (body.import_code === 'valid-token') {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              status: 'consumed',
+              job_id: 'job-123',
+              consumed_at: new Date().toISOString(),
+            }),
+          };
+        }
+        return { ok: false, status: 409, statusText: 'Conflict', json: async () => ({ detail: 'Already consumed' }) };
+      }
+      if (url.includes('/api/v1/import-tokens')) {
+        return {
+          ok: true,
+          status: 201,
+          json: async () => ({ import_code: 'valid-token', expires_at: new Date().toISOString() }),
+        };
+      }
+      return { ok: false, status: 404, statusText: 'Not Found', json: async () => ({}) };
+    });
+
+    const tokenRes = await client.createImportToken({ context_data: { source: 'test' } });
+    expect(tokenRes.import_code).toBe('valid-token');
+
+    const consumeRes = await client.consumeImportToken('valid-token');
+    expect(consumeRes.status).toBe('consumed');
+    expect(consumeRes.job_id).toBe('job-123');
+
+    await expect(client.consumeImportToken('used-token')).rejects.toMatchObject({
+      code: 'conflict',
     });
   });
 });

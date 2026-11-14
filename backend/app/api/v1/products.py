@@ -3,11 +3,18 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
+from app.core.rate_limit import search_limiter
 from app.db.dependencies import get_db
-from app.schemas.product import ProductDetailResponse, ProductSearchResult
+from app.models.product import Product
+from app.models.variant import Variant
+from app.schemas.product import (
+    ProductDetailResponse,
+    ProductSearchResult,
+    VariantDetailResponse,
+)
 from app.services.catalog_service import CatalogService
 
 router = APIRouter(prefix="/products", tags=["Products"])
@@ -20,6 +27,7 @@ catalog_service = CatalogService()
     status_code=status.HTTP_200_OK,
     summary="Search canonical products",
     description="Retrieve canonical products with optional category filtering and keyword search.",
+    dependencies=[Depends(search_limiter)],
 )
 def list_products(
     db: Annotated[Session, Depends(get_db)],
@@ -45,6 +53,36 @@ def list_products(
         category=category,
         limit=limit,
         cursor=cursor,
+    )
+
+
+@router.get(
+    "/variants/{variant_id}",
+    response_model=VariantDetailResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get canonical variant and parent product",
+    description="Retrieve a canonical variant and its parent canonical product.",
+)
+def get_variant_detail(
+    variant_id: uuid.UUID,
+    db: Annotated[Session, Depends(get_db)],
+) -> VariantDetailResponse:
+    """Retrieve canonical variant and associated product."""
+    variant = db.get(Variant, variant_id)
+    if not variant:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Variant '{variant_id}' not found.",
+        )
+    product = db.get(Product, variant.product_id)
+    if not product:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Parent product for variant '{variant_id}' not found.",
+        )
+    return VariantDetailResponse(
+        variant=catalog_service._to_variant_response(variant),
+        product=catalog_service._to_product_response(product),
     )
 
 

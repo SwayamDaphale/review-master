@@ -22,6 +22,7 @@
   <div class="actions">
     <button id="extractBtn" class="primary-btn">Extract Smartphone Data</button>
     <button id="submitBtn" class="primary-btn hidden" disabled>Submit to Review Master</button>
+    <button id="compareBtn" class="primary-btn hidden" disabled>Add to Compare</button>
     <button id="openWebBtn" class="primary-btn hidden" disabled>Open in Review Master Web</button>
     <button id="downloadBtn" class="secondary-btn" disabled>Download Validated JSON</button>
   </div>
@@ -29,15 +30,36 @@
   <!-- Messages & Warnings -->
   <div id="messageContainer" class="message-container hidden"></div>
 
-  <!-- Submission Status -->
+  <!-- Submission & Resolution Status -->
   <div id="submitStatusContainer" class="summary-card hidden">
     <div class="summary-row">
-      <span class="label">Backend Ingestion Status:</span>
+      <span class="label">Ingestion Job Status:</span>
       <span id="submitStatusText" class="value strong">-</span>
     </div>
     <div class="summary-row">
       <span class="label">Ingestion Job ID:</span>
       <span id="jobIdText" class="value highlight">-</span>
+    </div>
+    <div class="summary-row">
+      <span class="label">Identity Match Status:</span>
+      <span id="identityMatchText" class="value strong">-</span>
+    </div>
+    <div id="resolvedVariantRow" class="summary-row hidden">
+      <span class="label">Resolved Variant ID:</span>
+      <span id="resolvedVariantText" class="value highlight">-</span>
+    </div>
+  </div>
+
+  <!-- Compare Session Selector -->
+  <div id="compareContainer" class="summary-card hidden">
+    <div class="summary-row">
+      <span class="label">Target Session:</span>
+      <select id="compareSessionSelect" style="flex: 1; padding: 4px; font-size: 11px; border-radius: 4px; background: #1e293b; color: #fff; border: 1px solid #475569;">
+        <option value="new">+ Create New Active Session</option>
+      </select>
+    </div>
+    <div style="margin-top: 8px;">
+      <button id="confirmCompareBtn" class="primary-btn" style="width: 100%;">Confirm Add to Compare</button>
     </div>
   </div>
 

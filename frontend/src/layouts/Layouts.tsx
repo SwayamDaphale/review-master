@@ -7,14 +7,40 @@ import { SampleBadge } from '../components/trust';
 import { Notice } from '../components/states';
 import { useSiteSettings } from '../state/siteSettings';
 import { useAdmin } from '../lib/adminAuth';
+import { isDemoMode } from '../api';
+
+function DemoModeBanner() {
+  if (!isDemoMode) return null;
+  return (
+    <div
+      style={{
+        background: '#f59e0b',
+        color: '#0f172a',
+        padding: '6px 16px',
+        fontSize: '12px',
+        fontWeight: 700,
+        textAlign: 'center',
+        letterSpacing: '0.05em',
+        textTransform: 'uppercase',
+      }}
+      role="status"
+    >
+      Development Demo Mode Active (Mock Fixtures Enabled)
+    </div>
+  );
+}
 
 function SiteBanner() {
   const [settings] = useSiteSettings();
-  if (!settings.bannerEnabled || !settings.bannerText.trim()) return null;
   return (
-    <div className="banner" role="status">
-      {settings.bannerText}
-    </div>
+    <>
+      <DemoModeBanner />
+      {settings.bannerEnabled && settings.bannerText.trim() ? (
+        <div className="banner" role="status">
+          {settings.bannerText}
+        </div>
+      ) : null}
+    </>
   );
 }
 

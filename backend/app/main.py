@@ -8,20 +8,20 @@ import logging
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import FastAPI, Response, status
+from fastapi import FastAPI, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.v1.router import api_v1_router
 from app.core.config import settings
+from app.core.logging import RequestIDMiddleware, init_logging, init_sentry
 from app.db.session import engine
 
-# Configure structured logging
-logging.basicConfig(
-    level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO),
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
+# Configure environment-appropriate logging and error tracking
+init_logging()
+init_sentry()
 logger = logging.getLogger("review_master")
 
 
@@ -48,6 +48,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Correlation ID propagation middleware
+app.add_middleware(RequestIDMiddleware)
+
 # CORS configuration for web application and browser extension
 cors_origins = (
     settings.CORS_ORIGINS
@@ -61,6 +64,24 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception) -> Response:
+    """Safe exception handler preventing stack trace disclosure in production."""
+    req_id = getattr(request.state, "request_id", "unknown")
+    logger.error("Unhandled server exception [req_id=%s]: %s", req_id, exc)
+    if settings.DEBUG:
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"detail": f"Internal Server Error: {exc!s}", "request_id": req_id},
+            headers={"x-request-id": req_id},
+        )
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={"detail": "An internal server error occurred.", "request_id": req_id},
+        headers={"x-request-id": req_id},
+    )
 
 
 @app.get("/healthz", tags=["Health"])

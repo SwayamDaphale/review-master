@@ -40,4 +40,20 @@ export interface ApiClient {
   // B10 Recommendations
   parseRequirements?(query: string, categoryHint?: string): Promise<unknown>;
   generateRecommendations?(payload: unknown): Promise<unknown>;
+
+  // B11 Secure Import-Code Handoff
+  createImportToken?(payload: {
+    job_id?: string;
+    listing_id?: string;
+    context_data?: Record<string, unknown>;
+  }): Promise<{ import_code: string; expires_at: string }>;
+  consumeImportToken?(importCode: string): Promise<{
+    status: string;
+    job_id?: string;
+    listing_id?: string;
+    context?: string;
+    job_status?: string;
+    payload?: unknown;
+    consumed_at: string;
+  }>;
 }

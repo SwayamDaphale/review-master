@@ -1,13 +1,15 @@
-import { createContext, useCallback, useContext, useMemo, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { STORAGE_KEYS, useStoredState } from '../lib/storage';
 import { sessionFromCredential } from '../auth/google';
 import { httpClient } from '../api/httpClient';
+import { isRealApiMode } from '../api';
 import type { Session } from './session';
 
 const SESSION_DAYS = 7;
 
 interface AuthContextValue {
   session: Session | null;
+  isInitializing: boolean;
   signInWithGoogle: (credential: string) => { ok: true } | { ok: false; error: string };
   signInWithEmail: (email: string, password: string) => Promise<{ ok: true } | { ok: false; error: string }>;
   registerWithEmail: (
@@ -29,7 +31,61 @@ function isFresh(s: Session | null): s is Session {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [stored, setStored] = useStoredState<Session | null>(STORAGE_KEYS.session, null);
+  const [isInitializing, setIsInitializing] = useState(isRealApiMode && !!stored?.accessToken);
   const session = isFresh(stored) ? stored : null;
+
+  useEffect(() => {
+    let active = true;
+    async function restore() {
+      if (!isRealApiMode) {
+        setIsInitializing(false);
+        return;
+      }
+      if (stored?.accessToken) {
+        try {
+          const me = await httpClient.getMe();
+          if (active && me) {
+            setStored((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    roles: me.roles,
+                    name: me.display_name || prev.name,
+                  }
+                : prev,
+            );
+          }
+        } catch {
+          // Token might be expired, attempt refresh
+          try {
+            const refreshed = await httpClient.refresh();
+            if (active && refreshed) {
+              setStored({
+                provider: 'local',
+                sub: refreshed.user.id,
+                email: refreshed.user.email,
+                name: refreshed.user.display_name || refreshed.user.email.split('@')[0],
+                signedInAt: new Date().toISOString(),
+                accessToken: refreshed.access_token,
+                roles: refreshed.user.roles,
+              });
+            }
+          } catch {
+            if (active) {
+              setStored(null);
+            }
+          }
+        }
+      }
+      if (active) {
+        setIsInitializing(false);
+      }
+    }
+    restore();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const signInWithGoogle = useCallback(
     (credential: string) => {
@@ -105,13 +161,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       session,
+      isInitializing,
       signInWithGoogle,
       signInWithEmail,
       registerWithEmail,
       signInDemo,
       signOut,
     }),
-    [session, signInWithGoogle, signInWithEmail, registerWithEmail, signInDemo, signOut],
+    [session, isInitializing, signInWithGoogle, signInWithEmail, registerWithEmail, signInDemo, signOut],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

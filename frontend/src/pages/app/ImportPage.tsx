@@ -13,7 +13,7 @@ import {
 import { formatINR } from '../../lib/format';
 import { MatchBadge } from '../../components/MatchBadge';
 import { ProductRow } from '../../components/ProductRow';
-import { Notice } from '../../components/states';
+import { Notice, Loading } from '../../components/states';
 import { useSiteSettings } from '../../state/siteSettings';
 
 const FIELD_ORDER = [
@@ -48,6 +48,15 @@ export default function ImportPage() {
   const [settings] = useSiteSettings();
   const [text, setText] = useState('');
   const [parsed, setParsed] = useState<ImportResult | null>(null);
+  const [exchangeStatus, setExchangeStatus] = useState<{
+    loading: boolean;
+    error: string | null;
+    success: boolean;
+  }>({
+    loading: false,
+    error: null,
+    success: false,
+  });
   const match = useMutation({ mutationFn: api.matchExtracted });
 
   const run = useCallback((source: string) => {
@@ -59,13 +68,44 @@ export default function ImportPage() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+
+    // Check for secure single-use import code in query param or hash
+    const params = new URLSearchParams(window.location.search);
+    const queryCode = params.get('code') || params.get('import_code');
     const hash = window.location.hash;
+    const hashCode = hash.startsWith('#code=') ? hash.slice(6) : null;
+    const importCode = queryCode || hashCode;
+
+    if (importCode) {
+      // Immediately scrub single-use token from visible browser history and address bar
+      window.history.replaceState(null, '', window.location.pathname);
+      setExchangeStatus({ loading: true, error: null, success: false });
+
+      if (api.consumeImportToken) {
+        api.consumeImportToken(importCode)
+          .then((res) => {
+            setExchangeStatus({ loading: false, error: null, success: true });
+            if (res.payload) {
+              const str = JSON.stringify(res.payload, null, 2);
+              setText(str);
+              run(str);
+            }
+          })
+          .catch((err) => {
+            const msg =
+              err instanceof Error ? err.message : 'Invalid, expired, or already-consumed import code.';
+            setExchangeStatus({ loading: false, error: msg, success: false });
+          });
+      }
+      return;
+    }
+
     if (hash && hash.startsWith('#data=')) {
       try {
         const rawJson = decodeURIComponent(hash.slice(6));
+        window.history.replaceState(null, '', window.location.pathname);
         setText(rawJson);
         run(rawJson);
-        window.history.replaceState(null, '', window.location.pathname + window.location.search);
       } catch (err) {
         console.error('Failed to parse extension payload from hash', err);
       }
@@ -94,6 +134,14 @@ export default function ImportPage() {
           product. Need the extension? <Link to="/extension">See how to install it</Link>.
         </p>
       </div>
+
+      {exchangeStatus.loading && <Loading label="Exchanging secure single-use import code..." />}
+      {exchangeStatus.error && <Notice tone="warn">{exchangeStatus.error}</Notice>}
+      {exchangeStatus.success && (
+        <Notice tone="info">
+          Secure import code successfully consumed and verified. Single-use token has been invalidated.
+        </Notice>
+      )}
 
       <div className="stack">
         <label htmlFor="json-input" className="label">Extension JSON</label>

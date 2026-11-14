@@ -23,6 +23,7 @@ from app.contracts.extraction.base import (
 )
 from app.core.auth import AuthenticatedUser, get_current_user, require_permissions
 from app.core.permissions import Permission
+from app.core.rate_limit import ingest_limiter
 from app.db.dependencies import get_db
 from app.models.extraction import IngestionJob
 from app.schemas.ingestion import (
@@ -50,6 +51,7 @@ MAX_PAYLOAD_BYTES = 2 * 1024 * 1024  # 2 Megabytes
     status_code=status.HTTP_202_ACCEPTED,
     summary="Ingest marketplace product listing extraction",
     description="Accepts legacy frozen smartphone or generalized extraction snapshots, validates, persists evidence, and schedules background processing.",
+    dependencies=[Depends(ingest_limiter)],
 )
 async def ingest_listing_endpoint(
     request: Request,

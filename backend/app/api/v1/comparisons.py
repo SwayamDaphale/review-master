@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import AuthenticatedUser, require_permissions
 from app.core.permissions import Permission, RoleName
+from app.core.rate_limit import comparison_limiter
 from app.db.dependencies import get_db
 from app.models.comparison import ComparisonSession
 from app.repositories.comparison_repository import (
@@ -23,7 +24,11 @@ from app.schemas.comparison import (
 )
 from app.services.comparison_service import ComparisonService
 
-router = APIRouter(prefix="/comparisons", tags=["Comparisons"])
+router = APIRouter(
+    prefix="/comparisons",
+    tags=["Comparisons"],
+    dependencies=[Depends(comparison_limiter)],
+)
 
 
 def _verify_session_ownership(session: ComparisonSession, current_user: AuthenticatedUser) -> None:
@@ -259,10 +264,17 @@ def add_item_to_session(
 
     _verify_session_ownership(session, current_user)
 
+    target_variant_id = payload.variant_id or payload.product_id
+    if not target_variant_id:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Either variant_id or product_id must be provided.",
+        )
+
     try:
         return service.add_variant_to_session(
             session_id=session.id,
-            variant_id=payload.variant_id,
+            variant_id=target_variant_id,
             position=payload.position,
         )
     except ComparisonValidationError as exc:

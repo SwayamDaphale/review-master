@@ -11,6 +11,7 @@ from app.api.v1.evaluations import router as evaluations_router
 from app.api.v1.evidence import router as evidence_router
 from app.api.v1.extractions import router as extractions_router
 from app.api.v1.identity import router as identity_router
+from app.api.v1.import_tokens import router as import_tokens_router
 from app.api.v1.ingestion import router as ingestion_router
 from app.api.v1.listings import router as listings_router
 from app.api.v1.products import router as products_router
@@ -26,6 +27,7 @@ api_v1_router.include_router(catalog_router)
 api_v1_router.include_router(corrections_router)
 api_v1_router.include_router(reviews_router)
 api_v1_router.include_router(extractions_router)
+api_v1_router.include_router(import_tokens_router)
 api_v1_router.include_router(ingestion_router)
 api_v1_router.include_router(listings_router)
 api_v1_router.include_router(identity_router)

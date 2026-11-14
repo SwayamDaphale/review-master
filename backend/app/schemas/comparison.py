@@ -15,9 +15,10 @@ class CreateComparisonSessionRequest(BaseModel):
 
 
 class AddComparisonVariantRequest(BaseModel):
-    """Payload to add a variant to a comparison session."""
+    """Payload to add a variant or product to a comparison session."""
 
-    variant_id: uuid.UUID
+    variant_id: uuid.UUID | None = None
+    product_id: uuid.UUID | None = None
     position: int | None = None
 
 

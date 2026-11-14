@@ -223,4 +223,26 @@ export const mockApi: ApiClient = {
       })),
     });
   },
+
+  async createImportToken(_payload: { job_id?: string; listing_id?: string; context_data?: Record<string, unknown> }) {
+    await wait();
+    return {
+      import_code: 'demo_import_code_' + Math.random().toString(36).substring(2),
+      expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+    };
+  },
+
+  async consumeImportToken(importCode: string) {
+    await wait();
+    if (!importCode) throw new ApiError('bad_request', 'Import code required');
+    return {
+      status: 'consumed',
+      job_id: 'demo-job-id',
+      listing_id: 'demo-listing-id',
+      context: JSON.stringify({ source: 'demo' }),
+      job_status: 'completed',
+      payload: FIXTURES[0],
+      consumed_at: new Date().toISOString(),
+    };
+  },
 };

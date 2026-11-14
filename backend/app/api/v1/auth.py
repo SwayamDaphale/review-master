@@ -15,7 +15,7 @@ from app.core.auth import (
 )
 from app.core.config import settings
 from app.core.permissions import RoleName
-from app.core.rate_limit import RateLimiter
+from app.core.rate_limit import RateLimiter, get_client_ip
 from app.core.security import (
     create_access_token,
     generate_refresh_token,
@@ -52,15 +52,12 @@ def _ensure_utc(dt: datetime) -> datetime:
 
 
 def _extract_client_info(request: Request) -> tuple[str | None, str | None]:
-    """Extract client IP and User-Agent header."""
+    """Extract client IP and User-Agent header safely."""
     user_agent = request.headers.get("user-agent")
     if user_agent and len(user_agent) > 512:
         user_agent = user_agent[:512]
 
-    client_ip = request.client.host if request.client else None
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        client_ip = forwarded.split(",")[0].strip()
+    client_ip = get_client_ip(request)
     return client_ip, user_agent
 
 

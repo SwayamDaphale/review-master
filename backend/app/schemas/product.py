@@ -29,6 +29,15 @@ class ProductDetailResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class VariantDetailResponse(BaseModel):
+    """Canonical variant and its parent product."""
+
+    variant: VariantResponse
+    product: ProductResponse
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class ProductSearchResult(BaseModel):
     """Paginated product search result matching the OpenAPI ProductSearchResult contract."""
 

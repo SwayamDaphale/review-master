@@ -3,16 +3,25 @@
  */
 
 let currentRecord = null;
+let lastJobId = null;
+let resolvedVariantId = null;
 
 const extractBtn = document.getElementById('extractBtn');
 const downloadBtn = document.getElementById('downloadBtn');
 const openWebBtn = document.getElementById('openWebBtn');
 const submitBtn = document.getElementById('submitBtn');
+const compareBtn = document.getElementById('compareBtn');
 const statusIndicator = document.getElementById('statusIndicator');
 const messageContainer = document.getElementById('messageContainer');
 const submitStatusContainer = document.getElementById('submitStatusContainer');
 const submitStatusText = document.getElementById('submitStatusText');
 const jobIdText = document.getElementById('jobIdText');
+const identityMatchText = document.getElementById('identityMatchText');
+const resolvedVariantRow = document.getElementById('resolvedVariantRow');
+const resolvedVariantText = document.getElementById('resolvedVariantText');
+const compareContainer = document.getElementById('compareContainer');
+const compareSessionSelect = document.getElementById('compareSessionSelect');
+const confirmCompareBtn = document.getElementById('confirmCompareBtn');
 const resultsContainer = document.getElementById('resultsContainer');
 const validationBadge = document.getElementById('validationBadge');
 
@@ -266,6 +275,8 @@ if (submitBtn) {
       submitStatusContainer.classList.remove('hidden');
       submitStatusText.textContent = 'Submitting to Review Master backend...';
       jobIdText.textContent = 'Allocating...';
+      if (identityMatchText) identityMatchText.textContent = 'Pending Ingestion';
+      if (resolvedVariantRow) resolvedVariantRow.classList.add('hidden');
     }
 
     try {
@@ -291,6 +302,7 @@ if (submitBtn) {
         return;
       }
 
+      lastJobId = data.job_id || null;
       if (submitStatusText) {
         submitStatusText.textContent = data.is_duplicate
           ? 'Accepted (Duplicate / Idempotent Cached)'
@@ -313,17 +325,72 @@ if (submitBtn) {
               if (submitStatusText) {
                 submitStatusText.textContent = `Job ${statusData.status.toUpperCase()}`;
               }
+
               if (statusData.status === 'completed' || statusData.status === 'failed') {
                 clearInterval(pollInterval);
+
+                // Run deterministic identity resolution to resolve product/variant match
+                try {
+                  const resolvePayload = {
+                    marketplace_code: 'amazon_in',
+                    asin: currentRecord.source?.asin || 'UNKNOWN',
+                    raw_title: currentRecord.raw_extraction?.title || '',
+                    brand: currentRecord.normalized?.brand || null,
+                    model_name: currentRecord.normalized?.model_name || null,
+                    ram_gb: currentRecord.normalized?.ram_gb || null,
+                    storage_gb: currentRecord.normalized?.storage_gb || null,
+                  };
+
+                  const idRes = await fetch(`${API_BASE_URL}/api/v1/identity/resolve`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(resolvePayload),
+                  });
+
+                  if (idRes.ok) {
+                    const idData = await idRes.json();
+                    const outcomeLabel = idData.outcome ? idData.outcome.replace('MATCH_', '') : 'RESOLVED';
+                    if (identityMatchText) {
+                      identityMatchText.textContent = outcomeLabel;
+                    }
+
+                    if (idData.variant_id) {
+                      resolvedVariantId = idData.variant_id;
+                      if (resolvedVariantRow && resolvedVariantText) {
+                        resolvedVariantRow.classList.remove('hidden');
+                        resolvedVariantText.textContent = String(idData.variant_id);
+                      }
+                      if (compareBtn) {
+                        compareBtn.disabled = false;
+                        compareBtn.classList.remove('hidden');
+                      }
+                    } else if (idData.product_id && !idData.variant_id) {
+                      if (identityMatchText) {
+                        identityMatchText.textContent = 'Product Family Matched (New Variant)';
+                      }
+                    }
+                  }
+                } catch {
+                  // Ignore identity resolution error in UI
+                }
+
+                // Persist state in local extension storage if supported
+                if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+                  chrome.storage.local.set({
+                    rm_last_record: currentRecord,
+                    rm_last_job_id: data.job_id,
+                    rm_resolved_variant_id: resolvedVariantId,
+                  }).catch(() => {});
+                }
               }
             }
-          } catch (pollErr) {
+          } catch {
             // Ignore polling errors
           }
           if (pollCount >= maxPolls) {
             clearInterval(pollInterval);
           }
-        }, 2000);
+        }, 1500);
       }
     } catch (netErr) {
       showMessage(`Network error connecting to backend: ${netErr.message || 'Connection refused at localhost:8000'}`, 'error');
@@ -335,15 +402,129 @@ if (submitBtn) {
   });
 }
 
-// Open in Review Master Web app handler
+// Add to Compare click handler (Module 12)
+if (compareBtn) {
+  compareBtn.addEventListener('click', async () => {
+    if (!resolvedVariantId) {
+      showMessage('No resolved variant available to compare.', 'warning');
+      return;
+    }
+    clearMessage();
+    if (compareContainer) {
+      compareContainer.classList.remove('hidden');
+    }
+
+    try {
+      // Query active comparison sessions
+      const sessionsRes = await fetch(`${API_BASE_URL}/api/v1/comparisons?status=active`);
+      if (sessionsRes.ok) {
+        const sessions = await sessionsRes.json();
+        if (compareSessionSelect) {
+          compareSessionSelect.innerHTML = '<option value="new">+ Create New Active Session</option>';
+          if (Array.isArray(sessions)) {
+            sessions.forEach((s) => {
+              const opt = document.createElement('option');
+              opt.value = s.id;
+              opt.textContent = `${s.title || 'Comparison'} (${s.item_count || 0} items)`;
+              compareSessionSelect.appendChild(opt);
+            });
+          }
+        }
+      }
+    } catch {
+      // Session fetch error, fallback to creating new session
+    }
+  });
+}
+
+if (confirmCompareBtn) {
+  confirmCompareBtn.addEventListener('click', async () => {
+    if (!resolvedVariantId) return;
+    clearMessage();
+    confirmCompareBtn.disabled = true;
+
+    try {
+      let targetSessionId = compareSessionSelect ? compareSessionSelect.value : 'new';
+      if (targetSessionId === 'new') {
+        const title = `Comparison: ${currentRecord?.normalized?.model_name || 'Product'}`;
+        const newSessionRes = await fetch(`${API_BASE_URL}/api/v1/comparisons`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title }),
+        });
+        if (!newSessionRes.ok) {
+          const errData = await newSessionRes.json().catch(() => null);
+          const detail = errData?.detail || `HTTP ${newSessionRes.status}`;
+          showMessage(`Could not create comparison session: ${detail}`, 'error');
+          confirmCompareBtn.disabled = false;
+          return;
+        }
+        const newSession = await newSessionRes.json();
+        targetSessionId = newSession.id;
+      }
+
+      // Add variant to comparison session
+      const addRes = await fetch(`${API_BASE_URL}/api/v1/comparisons/${targetSessionId}/items`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ variant_id: resolvedVariantId }),
+      });
+
+      if (!addRes.ok) {
+        const errData = await addRes.json().catch(() => null);
+        const detail = errData?.detail || `HTTP ${addRes.status}`;
+        showMessage(`Could not add to compare: ${detail}`, 'error');
+      } else {
+        showMessage('Successfully added product variant to comparison session!', 'info');
+        if (compareContainer) compareContainer.classList.add('hidden');
+      }
+    } catch (err) {
+      showMessage(`Comparison error: ${err.message || 'Connection failed'}`, 'error');
+    } finally {
+      confirmCompareBtn.disabled = false;
+    }
+  });
+}
+
+// Open in Review Master Web app handler with Secure Single-Use Handoff (Module 13)
 if (openWebBtn) {
-  openWebBtn.addEventListener('click', () => {
+  openWebBtn.addEventListener('click', async () => {
     if (!currentRecord) return;
-    const targetUrl = 'http://localhost:5173/app/import#data=' + encodeURIComponent(JSON.stringify(currentRecord));
-    if (typeof chrome !== 'undefined' && chrome.tabs && typeof chrome.tabs.create === 'function') {
-      chrome.tabs.create({ url: targetUrl });
-    } else if (typeof window !== 'undefined') {
-      window.open(targetUrl, '_blank');
+    clearMessage();
+    openWebBtn.disabled = true;
+
+    try {
+      // Request secure single-use handoff code from backend
+      const tokenRes = await fetch(`${API_BASE_URL}/api/v1/import-tokens`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          job_id: lastJobId || undefined,
+          context_data: {
+            asin: currentRecord.source?.asin || 'UNKNOWN',
+            title: currentRecord.raw_extraction?.title || '',
+          },
+        }),
+      });
+
+      if (!tokenRes.ok) {
+        throw new Error('Failed to create single-use handoff token.');
+      }
+
+      const tokenData = await tokenRes.json();
+      const code = tokenData.import_code;
+      const targetUrl = `http://localhost:5173/app/import?code=${encodeURIComponent(code)}`;
+
+      if (typeof chrome !== 'undefined' && chrome.tabs && typeof chrome.tabs.create === 'function') {
+        chrome.tabs.create({ url: targetUrl });
+      } else if (typeof window !== 'undefined') {
+        window.open(targetUrl, '_blank');
+      }
+      showMessage('Secure single-use handoff initiated. Opening web application...', 'info');
+    } catch (err) {
+      showMessage(`Handoff error: ${err.message}. Ensure Review Master backend is running.`, 'error');
+    } finally {
+      openWebBtn.disabled = false;
     }
   });
 }

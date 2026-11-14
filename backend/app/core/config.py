@@ -74,6 +74,26 @@ class Settings(BaseSettings):
         description="S3 secret key",
     )
 
+    # Rate Limiting & Proxy Security
+    RATE_LIMIT_ENABLED: bool = Field(
+        default=True, description="Enable or disable server-side rate limiting"
+    )
+    TRUSTED_PROXIES: list[str] | str = Field(
+        default=["127.0.0.1", "::1"],
+        description="Trusted proxy IPs/CIDRs authorized to set X-Forwarded-For",
+    )
+
+    # Observability & Error Tracking
+    SENTRY_DSN: str | None = Field(
+        default=None, description="Optional Sentry DSN for error reporting"
+    )
+    SENTRY_ENVIRONMENT: str | None = Field(
+        default=None, description="Optional Sentry environment override"
+    )
+    SENTRY_TRACES_SAMPLE_RATE: float = Field(
+        default=0.1, description="Sentry APM trace sample rate (0.0 to 1.0)"
+    )
+
     # Core Security Secrets (Required in production)
     JWT_SECRET: str = Field(
         default="change-me-dev-only-32-byte-secret-key-1234",
@@ -147,6 +167,14 @@ class Settings(BaseSettings):
             return [i.strip() for i in v.split(",") if i.strip()]
         return v
 
+    @field_validator("TRUSTED_PROXIES")
+    @classmethod
+    def assemble_trusted_proxies(cls, v: str | list[str]) -> list[str]:
+        """Convert comma-separated proxy IP strings into a list."""
+        if isinstance(v, str):
+            return [i.strip() for i in v.split(",") if i.strip()]
+        return v
+
     @model_validator(mode="after")
     def validate_production_secrets(self) -> "Settings":
         """Enforce strong credentials in production environment."""
@@ -181,6 +209,8 @@ class Settings(BaseSettings):
             "cors_origins": self.CORS_ORIGINS,
             "database_url": self.safe_database_url(),
             "redis_configured": bool(self.REDIS_URL),
+            "rate_limit_enabled": self.RATE_LIMIT_ENABLED,
+            "sentry_configured": bool(self.SENTRY_DSN),
             "jwt_secret_configured": bool(
                 self.JWT_SECRET and self.JWT_SECRET != "change-me-dev-only"
             ),

@@ -14,6 +14,9 @@ import {
   type ProductDetail,
   type ProductSummary,
   type VariantView,
+  type Offer,
+  type SpecItem,
+  type Evaluation,
   type CatalogSearchResult,
   type CatalogProductDetail,
   type ApiComparisonMatrixResponse,
@@ -44,6 +47,27 @@ function getCsrfToken(): string | null {
   if (typeof document === 'undefined') return null;
   const match = document.cookie.match(/(?:^|;\s*)rm_csrf_token=([^;]+)/);
   return match ? decodeURIComponent(match[1]) : null;
+}
+
+interface LatestEvalResponse {
+  id?: string;
+  calculation_policy_version?: string;
+  overall_score?: number | string | null;
+  confidence_state?: string;
+  confidence_score?: number | string | null;
+  coverage?: number | string | null;
+  limitations?: { reasons?: string[]; notes?: string[] };
+  parameter_results?: Array<{
+    parameter_key: string;
+    status: string;
+    score: number | string | null;
+    weight: number | string | null;
+    effective_weight: number | string | null;
+    is_critical: boolean;
+    evidence_ids?: string[];
+    explanation_data?: { summary?: string };
+  }>;
+  created_at?: string;
 }
 
 export class HttpClient implements ApiClient {
@@ -90,15 +114,6 @@ export class HttpClient implements ApiClient {
       });
 
       if (!response.ok) {
-        if (response.status === 404) {
-          throw new ApiError('not_found', `Resource at ${path} was not found.`);
-        }
-        if (response.status === 429) {
-          throw new ApiError('rate_limited', 'Too many requests. Please try again shortly.');
-        }
-        if (response.status >= 500) {
-          throw new ApiError('server_error', `Backend error (${response.status}): ${response.statusText}`);
-        }
         let detail = response.statusText;
         try {
           const body = await response.json();
@@ -107,6 +122,47 @@ export class HttpClient implements ApiClient {
           }
         } catch {
           // ignore json parse error on error body
+        }
+
+        if (response.status === 400) {
+          throw new ApiError('bad_request', detail);
+        }
+        if (response.status === 401) {
+          // Attempt auto-refresh for expired bearer token if not an auth endpoint
+          if (!(options as { _isRetry?: boolean })._isRetry && !path.startsWith('/api/v1/auth/')) {
+            try {
+              const newTokens = await this.refresh();
+              if (newTokens?.access_token) {
+                const currentSession = readStored<{ accessToken?: string } | null>(STORAGE_KEYS.session, null);
+                if (currentSession) {
+                  currentSession.accessToken = newTokens.access_token;
+                  localStorage.setItem(STORAGE_KEYS.session, JSON.stringify(currentSession));
+                }
+                return await this.request<T>(path, { ...options, _isRetry: true } as RequestInit);
+              }
+            } catch {
+              // Refresh failed, proceed with unauthorized error
+            }
+          }
+          throw new ApiError('unauthorized', detail || 'Authentication required.');
+        }
+        if (response.status === 403) {
+          throw new ApiError('forbidden', detail || 'Access forbidden.');
+        }
+        if (response.status === 404) {
+          throw new ApiError('not_found', detail || `Resource at ${path} was not found.`);
+        }
+        if (response.status === 409) {
+          throw new ApiError('conflict', detail || 'Resource state conflict.');
+        }
+        if (response.status === 422) {
+          throw new ApiError('validation_error', detail || 'Request validation error.');
+        }
+        if (response.status === 429) {
+          throw new ApiError('rate_limited', 'Too many requests. Please try again shortly.');
+        }
+        if (response.status >= 500) {
+          throw new ApiError('server_error', `Backend error (${response.status}): ${response.statusText}`);
         }
         throw new ApiError('bad_request', detail);
       }
@@ -331,22 +387,281 @@ export class HttpClient implements ApiClient {
     };
   }
 
-  // --- Endpoints Deferred to Subsequent Phases ---
+  // --- Real Identifier, Variant & Summary Endpoints ---
 
-  async lookupIdentifier(_parsed: ParsedIdentifier): Promise<MatchResult> {
-    throw new ApiError('not_implemented', 'Marketplace listing identifier lookup is scheduled for Phase B4.');
+  async lookupIdentifier(parsed: ParsedIdentifier): Promise<MatchResult> {
+    const catalog = await this.getCatalogProducts({ q: parsed.value });
+    if (!catalog.items || catalog.items.length === 0) {
+      return {
+        match_state: 'unmatched',
+        candidates: [],
+        reason: `No canonical product found for identifier "${parsed.value}".`,
+      };
+    }
+    const product = catalog.items[0];
+    const detail = await this.getCatalogProductDetail(product.id);
+    const candidates = detail.variants.map((v) => ({
+      product: {
+        id: detail.product.id,
+        name: detail.product.name,
+        manufacturer: detail.product.manufacturer,
+        model: detail.product.name,
+        category: detail.product.category as Category,
+        mpn: detail.product.mpn ?? undefined,
+      },
+      variant: {
+        id: v.id,
+        product_id: v.product_id,
+        label: v.label,
+        configuration: v.configuration as Record<string, string | number>,
+      },
+      evaluation: {
+        evaluation_id: `eval-${v.id}`,
+        variant_id: v.id,
+        model: { name: 'Review Master V1', version: 'pending' },
+        overall_score: null,
+        confidence: {
+          state: 'insufficient_evidence' as const,
+          score: 0,
+          coverage: 0,
+          reasons: ['Evaluation pending evidence collection'],
+        },
+        parameters: [],
+        limitations: [],
+        created_at: new Date().toISOString(),
+      },
+      price: null,
+      match_state: 'probable' as const,
+    }));
+    return {
+      match_state: 'probable',
+      candidates,
+      reason: `Found matching product family for ${product.name}.`,
+    };
   }
 
-  async getVariantView(_variantId: string): Promise<VariantView> {
-    throw new ApiError('not_implemented', 'Variant evaluation view is scheduled for Phase B4.');
+  async getVariantView(variantId: string): Promise<VariantView> {
+    // 1. Fetch variant and parent product
+    const variantData = await this.request<{
+      variant: { id: string; product_id: string; label: string; configuration: Record<string, unknown> };
+      product: { id: string; name: string; manufacturer: string; category: string; mpn?: string; generation?: string };
+    }>(`/api/v1/products/variants/${encodeURIComponent(variantId)}`);
+
+    const product = variantData.product;
+    const variant = variantData.variant;
+    const categoryKey = (product.category || 'smartphone') as Category;
+
+    // 2. Fetch latest evaluation (if available)
+    let evalData: LatestEvalResponse | null = null;
+    try {
+      evalData = await this.request<LatestEvalResponse>(
+        `/api/v1/variants/${encodeURIComponent(variantId)}/evaluations/latest`
+      );
+    } catch {
+      evalData = null;
+    }
+
+    // 3. Fetch evidence records (if available)
+    let evidenceItems: Array<{ parameter_key?: string; raw_value?: unknown; source_type?: string }> = [];
+    try {
+      const evRes = await this.request<{ items: typeof evidenceItems }>(
+        `/api/v1/evidence?variant_id=${encodeURIComponent(variantId)}`
+      );
+      evidenceItems = evRes.items || [];
+    } catch {
+      evidenceItems = [];
+    }
+
+    // 4. Fetch marketplace listings/offers (if available)
+    let listings: Array<{
+      id?: string;
+      listing_id?: string;
+      seller_name?: string;
+      marketplace_name?: string;
+      price?: number | string;
+      currency?: string;
+      is_available?: boolean;
+      marketplace_code?: string;
+      observed_at?: string;
+      created_at?: string;
+    }> = [];
+    try {
+      listings = await this.request<typeof listings>(
+        `/api/v1/products/${encodeURIComponent(product.id)}/listings`
+      );
+    } catch {
+      listings = [];
+    }
+
+    const offers: Offer[] = (listings || []).map((l) => ({
+      offer_id: l.id || l.listing_id || 'offer-1',
+      seller: l.seller_name || l.marketplace_name || 'Marketplace Seller',
+      price: l.price ? Number(l.price) : 0,
+      currency: l.currency || 'INR',
+      availability: l.is_available ? 'in_stock' : 'out_of_stock',
+      source: l.marketplace_code || 'amazon_in',
+      observed_at: l.observed_at || l.created_at || new Date().toISOString(),
+      stale: false,
+    }));
+
+    // 5. Build specs from variant configuration and evidence
+    const specs: SpecItem[] = [];
+    const cfg = (variant.configuration || {}) as Record<string, unknown>;
+    for (const [k, v] of Object.entries(cfg)) {
+      if (v !== undefined) {
+        specs.push({
+          key: k,
+          label: k.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+          value: v === null ? null : String(v),
+          source: 'canonical_catalog',
+        });
+      }
+    }
+    for (const ev of evidenceItems) {
+      if (ev.parameter_key && !specs.some((s) => s.key === ev.parameter_key)) {
+        specs.push({
+          key: ev.parameter_key,
+          label: ev.parameter_key.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()),
+          value: ev.raw_value ? String(ev.raw_value) : null,
+          source: `evidence_${ev.source_type || 'external'}`,
+        });
+      }
+    }
+
+    // 6. Assemble Evaluation object
+    let evaluation: Evaluation;
+    if (evalData) {
+      evaluation = {
+        evaluation_id: evalData.id || `eval-${variantId}`,
+        variant_id: variantId,
+        model: {
+          name: 'Review Master Evaluation Model',
+          version: evalData.calculation_policy_version || 'v1.0',
+        },
+        overall_score: evalData.overall_score !== null && evalData.overall_score !== undefined ? Number(evalData.overall_score) : null,
+        confidence: {
+          state: (evalData.confidence_state as any) || 'insufficient_evidence',
+          score: evalData.confidence_score !== null && evalData.confidence_score !== undefined ? Number(evalData.confidence_score) : 0,
+          coverage: evalData.coverage !== null && evalData.coverage !== undefined ? Number(evalData.coverage) : 0,
+          reasons: Array.isArray(evalData.limitations?.reasons) ? evalData.limitations.reasons : [],
+        },
+        parameters: (evalData.parameter_results || []).map((p) => ({
+          key: p.parameter_key,
+          name: p.parameter_key.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()),
+          status: p.status === 'scored' ? 'scored' : p.status === 'conflicted' ? 'conflicted' : 'not_scored',
+          score: p.score !== null && p.score !== undefined ? Number(p.score) : null,
+          weight: p.effective_weight !== null && p.effective_weight !== undefined
+            ? Number(p.effective_weight)
+            : (p.weight !== null && p.weight !== undefined ? Number(p.weight) : null),
+          is_critical: Boolean(p.is_critical),
+          evidence: (p.evidence_ids || []).map((eid: string) => ({
+            evidence_id: eid,
+            source_type: 'independent_test' as const,
+            trust_tier: 1 as const,
+            label: 'Laboratory Benchmark / Specification Evidence',
+            observed_at: evalData?.created_at || new Date().toISOString(),
+            verification_state: 'verified' as const,
+          })),
+          note: p.explanation_data?.summary || undefined,
+        })),
+        limitations: Array.isArray(evalData.limitations?.notes) ? evalData.limitations.notes : [],
+        created_at: evalData.created_at || new Date().toISOString(),
+      };
+    } else {
+      evaluation = {
+        evaluation_id: `pending-${variantId}`,
+        variant_id: variantId,
+        model: { name: 'Review Master Evaluation Engine', version: 'pending' },
+        overall_score: null,
+        confidence: {
+          state: 'insufficient_evidence',
+          score: 0,
+          coverage: 0,
+          reasons: ['Variant not yet evaluated by laboratory testing pipeline'],
+        },
+        parameters: [],
+        limitations: ['Evaluation pending evidence ingestion and quality scoring'],
+        created_at: new Date().toISOString(),
+      };
+    }
+
+    return {
+      product: {
+        id: product.id,
+        name: product.name,
+        manufacturer: product.manufacturer,
+        model: product.name,
+        category: categoryKey,
+        mpn: product.mpn,
+        generation: product.generation,
+      },
+      variant: {
+        id: variant.id,
+        product_id: variant.product_id,
+        label: variant.label,
+        configuration: variant.configuration as Record<string, string | number>,
+      },
+      match_state: 'confirmed',
+      specs,
+      evaluation,
+      explanation: {
+        text: 'Review Master scores are determined mathematically from verified hardware evidence and empirical tests.',
+        ai_generated: false,
+        mode: 'template',
+        referenced_parameters: [],
+      },
+      community: {
+        status: 'unavailable',
+        sample_size: 0,
+        themes: [],
+        review_quality_signals: [],
+        ai_generated: false,
+      },
+      expert: {
+        status: 'published',
+        findings: [],
+      },
+      offers,
+      marketplace_rating: null,
+      sample: false,
+    };
   }
 
-  async getPriceHistory(_variantId: string): Promise<PriceHistory> {
-    throw new ApiError('not_implemented', 'Price history tracking is scheduled for Phase B4.');
+  async getPriceHistory(variantId: string): Promise<PriceHistory> {
+    try {
+      const view = await this.getVariantView(variantId);
+      const points = (view.offers || [])
+        .filter((o) => o.price > 0)
+        .map((o) => ({ observed_at: o.observed_at, price: o.price }));
+      return {
+        points,
+        windows: { '30': null, '90': null },
+        coverage_days: points.length > 0 ? 1 : 0,
+      };
+    } catch {
+      return {
+        points: [],
+        windows: { '30': null, '90': null },
+        coverage_days: 0,
+      };
+    }
   }
 
-  async getSummaries(_variantIds: string[]): Promise<ProductSummary[]> {
-    throw new ApiError('not_implemented', 'Batch evaluated summaries are scheduled for Phase B4.');
+  async getSummaries(variantIds: string[]): Promise<ProductSummary[]> {
+    const views = await Promise.all(
+      variantIds.map((id) =>
+        this.getVariantView(id).catch(() => null)
+      )
+    );
+    return views
+      .filter((v): v is VariantView => v !== null)
+      .map((v) => ({
+        product: v.product,
+        variant: v.variant,
+        evaluation: v.evaluation,
+        price: v.offers[0]?.price ?? null,
+        match_state: 'confirmed',
+      }));
   }
 
   async compare(variantIds: string[]): Promise<ComparisonResult> {
@@ -538,6 +853,42 @@ export class HttpClient implements ApiClient {
 
   async getRecommendation(recommendationId: string): Promise<ApiRecommendationResponse> {
     return this.request<ApiRecommendationResponse>(`/api/v1/recommendations/${recommendationId}`);
+  }
+
+  // --- B11 Secure Import-Code Handoff Endpoints ---
+
+  async createImportToken(payload: {
+    job_id?: string;
+    listing_id?: string;
+    context_data?: Record<string, unknown>;
+  }): Promise<{ import_code: string; expires_at: string }> {
+    return this.request<{ import_code: string; expires_at: string }>('/api/v1/import-tokens', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async consumeImportToken(importCode: string): Promise<{
+    status: string;
+    job_id?: string;
+    listing_id?: string;
+    context?: string;
+    job_status?: string;
+    payload?: unknown;
+    consumed_at: string;
+  }> {
+    return this.request<{
+      status: string;
+      job_id?: string;
+      listing_id?: string;
+      context?: string;
+      job_status?: string;
+      payload?: unknown;
+      consumed_at: string;
+    }>('/api/v1/import-tokens/consume', {
+      method: 'POST',
+      body: JSON.stringify({ import_code: importCode }),
+    });
   }
 
   // --- Authentication Endpoints (Phase B4) ---
